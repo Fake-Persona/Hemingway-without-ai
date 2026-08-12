@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "npx --yes serve ."
+    "start": "npx --yes serve .",
+    "build": "node build.js"
   },
   "license": "MIT"
 }
