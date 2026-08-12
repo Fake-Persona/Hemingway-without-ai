@@ -110,11 +110,46 @@ function updateStats(totals, overallGrade) {
   }
 }
 
+// Reads the editor's text as the exact inverse of what renderDocument writes:
+// one line per top-level block, joined by "\n".
+//
+// This deliberately avoids `innerText`, which reports a *rendered* view rather
+// than our source. renderDocument emits `<div class="paragraph"><br></div>` to
+// keep a blank line visible, and innerText reads that back as TWO newlines —
+// one for the <br>, one for the block boundary. Feeding that back in produced
+// two blank paragraphs, then four, then eight: whitespace doubling on every
+// keystroke. textContent has no such rendering fiction, so the round-trip is
+// stable.
+//
+// A trailing bare <br> is skipped: browsers park one at the end of a
+// contenteditable purely to give the caret somewhere to sit, and it is not a
+// line the user typed.
+function readEditorText(editor) {
+  const blocks = [];
+  const children = [...editor.childNodes];
+
+  children.forEach((node, index) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      blocks.push(node.data);
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+    if (node.tagName === "BR") {
+      const isTrailingCaretHolder = index === children.length - 1;
+      if (!isTrailingCaretHolder) blocks.push("");
+      return;
+    }
+    blocks.push(node.textContent);
+  });
+
+  return blocks.join("\n");
+}
+
 function runAnalysis() {
   const hasFocus = document.activeElement === editor;
   const caretOffset = hasFocus ? getCaretOffset(editor) : null;
 
-  const text = editor.innerText.replace(/\n+$/, "");
+  const text = readEditorText(editor);
   const analysis = analyzeText(text);
 
   editor.innerHTML = renderDocument(analysis);
