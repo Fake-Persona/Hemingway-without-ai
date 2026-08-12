@@ -221,21 +221,27 @@ window.hemingway = {
   // text you are typing in a different app, so it needs the numbers without
   // rendering an editor it will never show. Returns a JSON string because that
   // is what survives the web view bridge intact.
+  // Everything the Android panel needs in one call: the score, the totals, and
+  // each individual issue with the offending words and where they sit.
+  //
+  // The offsets matter as much as the text. Tapping an issue there selects that
+  // exact range in whatever app you are writing in, so the app scrolls to it and
+  // marks it with its own selection — pointing at the problem without this
+  // having to know anything about where it is on screen.
   analyze(text) {
-    const analysis = analyzeText(typeof text === "string" ? text : "");
+    const source = typeof text === "string" ? text : "";
+    const analysis = analyzeText(source);
     return JSON.stringify({
       grade: analysis.overallGrade,
       label: gradeLevelLabel(analysis.overallGrade),
-      totals: analysis.totals
+      totals: analysis.totals,
+      issues: flattenHighlights(analysis).map(highlight => ({
+        start: highlight.start,
+        end: highlight.end,
+        type: highlight.type,
+        text: source.slice(highlight.start, highlight.end)
+      }))
     });
-  },
-  // Character ranges to colour, absolute to `text`. The Android overlay pairs
-  // these with per-character pixel rectangles from the accessibility API to
-  // paint highlights directly over words in another app's text field, so it
-  // needs positions rather than markup.
-  highlights(text) {
-    const analysis = analyzeText(typeof text === "string" ? text : "");
-    return JSON.stringify(flattenHighlights(analysis));
   }
 };
 

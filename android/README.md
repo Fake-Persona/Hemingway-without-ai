@@ -15,7 +15,8 @@ permissions. **Confirmed working in WhatsApp on a real device.**
 **Tier B** — live as-you-type feedback in a floating panel, via an accessibility service.
 Needs two grants from the setup screen. This is the only route that works in apps drawing
 their own selection menu, because it reads the focused field rather than waiting to be
-handed text. **Compiles in CI; not yet driven on a device.**
+handed text. **Confirmed reading text in WhatsApp and Obsidian on a real device**; the
+tap-to-select behaviour that replaced the pixel overlay has not been driven there yet.
 
 > **Open the app once after installing.** A freshly installed Android app stays in the
 > "stopped" state until opened once, and a stopped app's components are skipped when the
@@ -48,8 +49,18 @@ Open the app and grant both:
 1. **Display over other apps** — lets the panel float above what you are writing in
 2. **Accessibility service** — lets the app read the focused text field
 
-A small draggable panel then shows grade level and counts as you type, in any app. It is
-non-focusable, so typing underneath is unaffected.
+A small draggable panel then shows grade level, counts, and a list of what it found, as
+you type, in any app. **Tap an item and it selects that phrase in the app you are writing
+in**, so the app scrolls there and marks it with its own selection.
+
+That is deliberately not colour painted over your words. An earlier version did that,
+using per-character pixel positions from the accessibility API, and it was the most
+brittle part of the app: it needed positions that not every app reports, sat a status bar
+too low until corrected, and went stale the moment you scrolled. Selecting the text
+instead needs no idea of where anything is on screen, so it cannot drift.
+
+The panel is non-focusable, so typing underneath is unaffected. Only its header drags,
+so moving it never swallows a tap on a row.
 
 ### Apps that draw their own selection menu
 
@@ -101,23 +112,26 @@ The host talks to the page through three functions and never touches its DOM:
 ```js
 window.hemingway.setText(text)   // push text in
 window.hemingway.getText()       // read edited text back
-window.hemingway.analyze(text)   // stats only, no rendering — used by the panel
+window.hemingway.analyze(text)   // score, totals and located issues — used by the panel
 ```
 
 Kotlin escapes text with `JSONObject.quote` before it crosses into JavaScript, and decodes
 `evaluateJavascript`'s JSON-encoded result on the way back. That round-trip is covered by
 a browser test including newlines, quotes, backslashes, unicode and a `<script>` payload.
 
-## Open question
+## Diagnostics
 
-Whether highlights can be painted **directly over your words** in another app, rather than
-listed in the panel, depends on `refreshWithExtraData()` returning per-character pixel
-bounds. Expected to work for standard `TextView` fields and to fail for custom-rendered
-text (Flutter, some Compose). The service logs the real answer per app:
+Whether an app cooperates depends on how it exposes its text, and that cannot be
+determined from source. The service logs one line per distinct outcome:
 
 ```sh
 adb logcat -s HemingwayProbe
 ```
+
+`analysing chars=N` means it is working. `no focused text node` means the app's field
+could not be read at all. `selection refused by app` means the text was read but the app
+declined to move its own selection. Only a package name, a stage and counts are logged —
+never your text.
 
 ## Troubleshooting
 
@@ -129,3 +143,4 @@ adb logcat -s HemingwayProbe
 | Blank white screen | The asset missed the APK — check `copyEngine` ran, or unzip and look for `assets/hemingway.html` |
 | Replace never appears | The calling app marked the selection read-only, or you arrived via Share |
 | Panel never appears | Both grants are needed; Android 17's Advanced Protection Mode blocks the accessibility API outright |
+| Tapping an item does nothing | Some apps refuse to have their selection moved; `HemingwayProbe` logs `selection refused by app` |

@@ -1,7 +1,6 @@
 package com.hemingway.withoutai
 
 import android.accessibilityservice.AccessibilityService
-import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
@@ -9,10 +8,10 @@ import android.view.accessibility.AccessibilityNodeInfo
 
 /**
  * Watches the text field you are typing in, anywhere on the device, and keeps
- * both overlays in step with it.
+ * the floating panel in step with it.
  *
  * This is the only route Android offers to feedback inside other apps that does
- * not depend on being handed text through a menu, which is why it works in
+ * not depend on being handed text through a menu, which is why it reaches
  * editors that draw their own selection popup.
  *
  * It reads text from the focused node and nothing else. **Your text is never
@@ -24,7 +23,6 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
     private var engine: AnalysisEngine? = null
     private var panel: OverlayWidget? = null
-    private var highlights: HighlightOverlay? = null
 
     /** Skips redundant work when an event repeats text that has not changed. */
     private var lastText: String? = null
@@ -35,8 +33,7 @@ class HemingwayAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         engine = AnalysisEngine(this)
-        panel = OverlayWidget(this).also { it.show() }
-        highlights = HighlightOverlay(this).also { it.show() }
+        panel = OverlayWidget(this, ::selectInHostApp).also { it.show() }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -51,48 +48,69 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
         val node = findFocusedTextNode()
         if (node == null) {
-            // Nothing focused: stale colour over unrelated content would be
-            // worse than none.
-            highlights?.clear()
-            lastText = null
             report("no focused text node")
             return
         }
 
         val text = node.text?.toString().orEmpty()
-        if (text == lastText) {
-            node.recycleCompat()
-            return
-        }
+        node.recycleCompat()
+
+        if (text == lastText) return
         lastText = text
 
-        engine?.stats(text) { stats -> panel?.render(stats) }
-        paintHighlights(node, text)
-        node.recycleCompat()
+        report("analysing", "chars=${text.length}")
+        engine?.analyze(text) { result -> panel?.render(result) }
     }
 
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
         panel?.hide()
-        highlights?.hide()
         engine?.destroy()
         panel = null
-        highlights = null
         engine = null
         super.onDestroy()
     }
 
     /**
+     * Selects an issue's text in the app underneath, so that app scrolls to it
+     * and marks it with its own selection.
+     *
+     * This is how the panel points at a problem. Nothing here needs to know
+     * where the text sits on screen, which is what made the previous
+     * pixel-painting approach brittle: it depended on per-character positions
+     * that not every app reports, and went stale as soon as you scrolled.
+     *
+     * The node is looked up fresh rather than reused from the event, since the
+     * focus may well have moved between analysing and tapping.
+     */
+    private fun selectInHostApp(issue: Issue) {
+        val node = findFocusedTextNode() ?: run {
+            report("cannot select, nothing focused")
+            return
+        }
+
+        val length = node.text?.length ?: 0
+        val start = issue.start.coerceIn(0, length)
+        val end = issue.end.coerceIn(start, length)
+
+        val args = Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, start)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, end)
+        }
+        val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
+        node.recycleCompat()
+
+        if (!ok) report("selection refused by app")
+    }
+
+    /**
      * Finds the field being typed in.
      *
-     * Deliberately more permissive than "is it editable". Apps that render
-     * their editor inside a WebView — Obsidian runs CodeMirror in one — expose
-     * the focused element as a contenteditable that often does not set the
-     * editable flag at all. Requiring it meant those apps were rejected before
-     * anything was even attempted, which is why no highlights appeared there.
-     *
-     * Anything focused that actually carries text is worth analysing.
+     * Deliberately more permissive than "is it editable". Apps rendering their
+     * editor inside a WebView — Obsidian runs CodeMirror in one — expose the
+     * focused element as a contenteditable that often does not set the editable
+     * flag, and requiring it meant those apps were rejected outright.
      */
     private fun findFocusedTextNode(): AccessibilityNodeInfo? {
         val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
@@ -107,11 +125,7 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
     /**
      * Logs why a given app is or is not working, throttled to one line per
-     * distinct outcome so typing does not flood the log.
-     *
-     * Whether an app cooperates depends on how it draws its text, and that
-     * cannot be determined from here — this turns "it doesn't work in X" into
-     * which specific stage failed:
+     * distinct outcome so typing does not flood the log:
      *
      *     adb logcat -s HemingwayProbe
      */
@@ -121,60 +135,6 @@ class HemingwayAccessibilityService : AccessibilityService() {
         if (line == lastReport) return
         lastReport = line
         android.util.Log.i(PROBE_TAG, line)
-    }
-
-    /**
-     * Asks the system where each character sits on screen, then paints the
-     * analysis over those positions.
-     *
-     * The per-character positions come from `refreshWithExtraData`, which is
-     * only available from API 26 and is not honoured by every app — text drawn
-     * by a custom renderer may report nothing. When that happens the colour is
-     * simply cleared and the summary panel carries on, rather than the feature
-     * appearing broken.
-     */
-    private fun paintHighlights(node: AccessibilityNodeInfo, text: String) {
-        val overlay = highlights ?: return
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || text.isEmpty()) {
-            overlay.clear()
-            report("no text, or API below 26")
-            return
-        }
-
-        // Requesting positions is proportional to length, and only what is on
-        // screen can be painted anyway, so long documents are capped.
-        val length = minOf(text.length, MAX_CHARACTERS)
-        val args = Bundle().apply {
-            putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0)
-            putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, length)
-        }
-
-        val refreshed = node.refreshWithExtraData(
-            AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY,
-            args
-        )
-        if (!refreshed) {
-            overlay.clear()
-            report("refreshWithExtraData refused", "(text=${text.length})")
-            return
-        }
-
-        val parcelables = node.extras
-            ?.getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)
-        if (parcelables.isNullOrEmpty()) {
-            overlay.clear()
-            report("no character positions reported", "(text=${text.length})")
-            return
-        }
-
-        val charRects = Array(parcelables.size) { parcelables[it] as? RectF }
-        val visible = charRects.count { it != null }
-        report("painting", "chars=${charRects.size} visible=$visible")
-
-        engine?.highlights(text) { ranges ->
-            overlay.draw(HighlightMapper.toRects(ranges, charRects))
-        }
     }
 
     private fun AccessibilityNodeInfo.recycleCompat() {
@@ -187,7 +147,6 @@ class HemingwayAccessibilityService : AccessibilityService() {
     }
 
     private companion object {
-        const val MAX_CHARACTERS = 2000
         const val PROBE_TAG = "HemingwayProbe"
     }
 }

@@ -30,4 +30,12 @@
     <string name="widget_placeholder">—</string>
     <string name="widget_grade">Grade %1$d</string>
     <string name="widget_counts">%1$d adverbs · %2$d passive · %3$d complex · %4$d hard</string>
+    <string name="widget_hint">Tap an item to select it in the app</string>
+    <string name="kind_adverb">adverb</string>
+    <string name="kind_qualifier">hedge</string>
+    <string name="kind_passive">passive</string>
+    <string name="kind_complex">simplify</string>
+    <string name="kind_hard">hard sentence</string>
+    <string name="kind_very_hard">very hard</string>
+    <string name="kind_other">issue</string>
 </resources>

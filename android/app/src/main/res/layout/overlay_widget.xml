@@ -3,10 +3,13 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#DD1D2025"
+    android:background="#EE1D2025"
     android:padding="10dp">
 
+    <!-- Drag handle: the header moves the panel, so drags don't fight taps
+         on the issue rows below. -->
     <LinearLayout
+        android:id="@+id/header"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -17,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:text="@string/widget_placeholder" />
 
@@ -34,8 +37,33 @@
         android:id="@+id/counts"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:textColor="#E7E9EC"
-        android:textSize="12sp" />
+        android:textSize="11sp" />
+
+    <!-- Capped so a long document cannot grow the panel over the whole screen. -->
+    <ScrollView
+        android:id="@+id/issue_scroll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:maxHeight="180dp"
+        android:scrollbars="vertical">
+
+        <LinearLayout
+            android:id="@+id/issues"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <TextView
+        android:id="@+id/hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#6B7280"
+        android:textSize="10sp"
+        android:text="@string/widget_hint" />
 
 </LinearLayout>
