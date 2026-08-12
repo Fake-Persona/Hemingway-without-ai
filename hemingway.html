@@ -866,32 +866,47 @@ function escapeRegExp(str) {
 // followed immediately by more non-space text isn't mistaken for a sentence
 // end. Every character of the input ends up in exactly one output sentence;
 // nothing is silently dropped.
-function splitIntoSentences(paragraph) {
-  const trimmed = paragraph.trim();
-  if (trimmed.length === 0) return [];
+// Returns [{ text, start }], where start is the index of that sentence within
+// `paragraph`. Anything drawing on top of text someone else rendered — the
+// Android overlay painting highlights over the words in another app's text
+// field — has to map a highlight back to a character position, which trimmed
+// and split strings alone cannot express.
+function splitIntoSentencesWithOffsets(paragraph) {
+  const spans = [];
 
-  const sentences = [];
-  let start = 0;
+  // Records [from, to) with surrounding whitespace trimmed off, keeping the
+  // absolute index of where the trimmed text actually begins.
+  const push = (from, to) => {
+    let start = from;
+    let end = to;
+    while (start < end && /\s/.test(paragraph[start])) start++;
+    while (end > start && /\s/.test(paragraph[end - 1])) end--;
+    if (end > start) spans.push({ text: paragraph.slice(start, end), start });
+  };
+
+  let sentenceStart = 0;
   let i = 0;
-  while (i < trimmed.length) {
-    if (/[.!?]/.test(trimmed[i])) {
+  while (i < paragraph.length) {
+    if (/[.!?]/.test(paragraph[i])) {
       let end = i;
-      while (end + 1 < trimmed.length && /[.!?]/.test(trimmed[end + 1])) end++;
-      const nextChar = trimmed[end + 1];
+      while (end + 1 < paragraph.length && /[.!?]/.test(paragraph[end + 1])) end++;
+      const nextChar = paragraph[end + 1];
       if (nextChar === undefined || /\s/.test(nextChar)) {
-        sentences.push(trimmed.slice(start, end + 1).trim());
-        start = end + 1;
+        push(sentenceStart, end + 1);
+        sentenceStart = end + 1;
       }
       i = end + 1;
     } else {
       i++;
     }
   }
-  if (start < trimmed.length) {
-    sentences.push(trimmed.slice(start).trim());
-  }
+  if (sentenceStart < paragraph.length) push(sentenceStart, paragraph.length);
 
-  return sentences.filter(s => s.length > 0);
+  return spans;
+}
+
+function splitIntoSentences(paragraph) {
+  return splitIntoSentencesWithOffsets(paragraph).map(span => span.text);
 }
 
 function countWordsAndLetters(sentence) {
@@ -1036,9 +1051,17 @@ function analyzeText(text) {
     qualifiers: 0
   };
 
+  // Tracks where each paragraph begins in `text` so every sentence can carry an
+  // absolute start index (+1 per iteration for the "\n" that split removed).
+  let paragraphStart = 0;
+
   const analyzedParagraphs = paragraphs.map(paragraph => {
-    const sentences = splitIntoSentences(paragraph).map(sentence => {
-      const analyzed = analyzeSentence(sentence);
+    const offsetInText = paragraphStart;
+    paragraphStart += paragraph.length + 1;
+
+    const sentences = splitIntoSentencesWithOffsets(paragraph).map(span => {
+      const analyzed = analyzeSentence(span.text);
+      analyzed.start = offsetInText + span.start;
       totals.sentences += 1;
       totals.words += analyzed.wordCount;
       totals.letters += analyzed.letterCount;
@@ -1058,6 +1081,38 @@ function analyzeText(text) {
   const overallGrade = calculateGradeLevel(totals.letters, totals.words, totals.sentences);
 
   return { paragraphs: analyzedParagraphs, totals, overallGrade };
+}
+
+// Flattens an analysis into one list of highlights whose offsets are absolute
+// to the analyzed text, ordered by position. This is what a consumer painting
+// over text it did not render needs: it has no notion of paragraphs or
+// sentences, only "which characters get which colour".
+//
+// Sentence-level difficulty comes before the word-level ranges inside it, so a
+// caller drawing in order naturally layers the narrower highlight on top.
+function flattenHighlights(analysis) {
+  const highlights = [];
+
+  for (const paragraph of analysis.paragraphs) {
+    for (const sentence of paragraph.sentences) {
+      if (sentence.difficulty) {
+        highlights.push({
+          start: sentence.start,
+          end: sentence.start + sentence.text.length,
+          type: sentence.difficulty
+        });
+      }
+      for (const range of sentence.ranges) {
+        highlights.push({
+          start: sentence.start + range.start,
+          end: sentence.start + range.end,
+          type: range.type
+        });
+      }
+    }
+  }
+
+  return highlights.sort((a, b) => a.start - b.start || b.end - a.end);
 }
 
 // ===== js/render.js =====
@@ -1359,6 +1414,14 @@ window.hemingway = {
       label: gradeLevelLabel(analysis.overallGrade),
       totals: analysis.totals
     });
+  },
+  // Character ranges to colour, absolute to `text`. The Android overlay pairs
+  // these with per-character pixel rectangles from the accessibility API to
+  // paint highlights directly over words in another app's text field, so it
+  // needs positions rather than markup.
+  highlights(text) {
+    const analysis = analyzeText(typeof text === "string" ? text : "");
+    return JSON.stringify(flattenHighlights(analysis));
   }
 };
 

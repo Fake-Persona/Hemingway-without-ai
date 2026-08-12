@@ -1,31 +1,38 @@
 package com.hemingway.withoutai
 
 import android.accessibilityservice.AccessibilityService
+import android.graphics.RectF
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 /**
- * Watches the text field you are currently typing in, anywhere on the device,
- * and keeps the floating widget updated.
+ * Watches the text field you are typing in, anywhere on the device, and keeps
+ * both overlays in step with it.
  *
- * This is the only route Android offers to as-you-type feedback inside other
- * apps. It reads text from the focused node; it does not log, store or transmit
- * anything, and the app declares no INTERNET permission, so it structurally
- * cannot.
+ * This is the only route Android offers to feedback inside other apps that does
+ * not depend on being handed text through a menu, which is why it works in
+ * editors that draw their own selection popup.
+ *
+ * It reads text from the focused node and nothing else. Nothing is logged,
+ * stored or transmitted, and the app declares no INTERNET permission, so it
+ * structurally cannot be.
  */
 class HemingwayAccessibilityService : AccessibilityService() {
 
-    private var widget: OverlayWidget? = null
+    private var engine: AnalysisEngine? = null
+    private var panel: OverlayWidget? = null
+    private var highlights: HighlightOverlay? = null
 
-    /** Avoids redundant re-analysis when an event repeats the text unchanged. */
+    /** Skips redundant work when an event repeats text that has not changed. */
     private var lastText: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        widget = OverlayWidget(this).also { it.show() }
+        engine = AnalysisEngine(this)
+        panel = OverlayWidget(this).also { it.show() }
+        highlights = HighlightOverlay(this).also { it.show() }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -38,81 +45,99 @@ class HemingwayAccessibilityService : AccessibilityService() {
             else -> return
         }
 
-        val node = findFocusedEditable() ?: return
-        val text = node.text?.toString().orEmpty()
+        val node = findFocusedEditable()
+        if (node == null) {
+            // Nothing focused: stale colour over unrelated content would be
+            // worse than none.
+            highlights?.clear()
+            lastText = null
+            return
+        }
 
+        val text = node.text?.toString().orEmpty()
         if (text == lastText) {
             node.recycleCompat()
             return
         }
         lastText = text
 
-        widget?.update(text)
-        probeCharacterBounds(node, text)
+        engine?.stats(text) { stats -> panel?.render(stats) }
+        paintHighlights(node, text)
         node.recycleCompat()
     }
 
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        widget?.hide()
-        widget = null
+        panel?.hide()
+        highlights?.hide()
+        engine?.destroy()
+        panel = null
+        highlights = null
+        engine = null
         super.onDestroy()
     }
 
     private fun findFocusedEditable(): AccessibilityNodeInfo? {
         val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return null
-        return if (focused.isEditable) focused else { focused.recycleCompat(); null }
+        return if (focused.isEditable) focused else {
+            focused.recycleCompat()
+            null
+        }
     }
 
     /**
-     * One-off diagnostic for a question that decides the next design step:
-     * can we obtain per-character pixel rectangles for text inside another
-     * app's field?
+     * Asks the system where each character sits on screen, then paints the
+     * analysis over those positions.
      *
-     * If yes, highlights can be painted directly over your words. If no, the
-     * widget can only list the issues it found. This is expected to work for
-     * standard TextView-backed fields and to fail for custom-rendered text
-     * (Flutter, some Compose). Rather than guess, it reports what actually
-     * happens on real apps:
-     *
-     *     adb logcat -s HemingwayProbe
-     *
-     * Costs one extra call on the first event per field and is skipped
-     * thereafter, so it does not affect typing latency.
+     * The per-character positions come from `refreshWithExtraData`, which is
+     * only available from API 26 and is not honoured by every app — text drawn
+     * by a custom renderer may report nothing. When that happens the colour is
+     * simply cleared and the summary panel carries on, rather than the feature
+     * appearing broken.
      */
-    private fun probeCharacterBounds(node: AccessibilityNodeInfo, text: String) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (text.isEmpty() || probedPackages.contains(currentPackage())) return
-        probedPackages.add(currentPackage())
+    private fun paintHighlights(node: AccessibilityNodeInfo, text: String) {
+        val overlay = highlights ?: return
 
-        val args = Bundle().apply {
-            putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0)
-            putInt(
-                AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH,
-                minOf(text.length, 20)
-            )
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || text.isEmpty()) {
+            overlay.clear()
+            return
         }
 
-        val ok = node.refreshWithExtraData(
+        // Requesting positions is proportional to length, and only what is on
+        // screen can be painted anyway, so long documents are capped.
+        val length = minOf(text.length, MAX_CHARACTERS)
+        val args = Bundle().apply {
+            putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_START_INDEX, 0)
+            putInt(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_ARG_LENGTH, length)
+        }
+
+        val refreshed = node.refreshWithExtraData(
             AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY,
             args
         )
-        val rects = node.extras
-            ?.getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)
+        if (!refreshed) {
+            overlay.clear()
+            return
+        }
 
-        Log.i(
-            PROBE_TAG,
-            "package=${currentPackage()} refreshOk=$ok rects=${rects?.size ?: -1} " +
-                "-> inline highlighting ${if ((rects?.size ?: 0) > 0) "POSSIBLE" else "NOT available"}"
-        )
+        val parcelables = node.extras
+            ?.getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)
+        if (parcelables.isNullOrEmpty()) {
+            overlay.clear()
+            return
+        }
+
+        val charRects = Array(parcelables.size) { parcelables[it] as? RectF }
+
+        engine?.highlights(text) { ranges ->
+            overlay.draw(HighlightMapper.toRects(ranges, charRects))
+        }
     }
 
-    private fun currentPackage(): String = rootInActiveWindow?.packageName?.toString() ?: "unknown"
-
     private fun AccessibilityNodeInfo.recycleCompat() {
-        // recycle() is deprecated and a no-op from API 33; calling it on older
-        // releases still matters to avoid exhausting the node pool.
+        // recycle() is deprecated and a no-op from API 33, but on older releases
+        // skipping it exhausts the node pool.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             @Suppress("DEPRECATION")
             recycle()
@@ -120,7 +145,6 @@ class HemingwayAccessibilityService : AccessibilityService() {
     }
 
     private companion object {
-        const val PROBE_TAG = "HemingwayProbe"
-        val probedPackages = mutableSetOf<String>()
+        const val MAX_CHARACTERS = 2000
     }
 }

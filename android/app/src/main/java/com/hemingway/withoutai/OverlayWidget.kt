@@ -9,16 +9,15 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.webkit.WebView
 import android.widget.TextView
 import org.json.JSONObject
 
 /**
- * The floating panel that sits above whatever app you are typing in.
+ * The small summary panel that floats above whatever app you are typing in.
  *
- * Analysis is not reimplemented here. An offscreen web view runs the same
- * `hemingway.html` the website ships and answers with counts, so the phone and
- * the site can never disagree about what counts as an adverb.
+ * Shows totals only. The colour over individual words is drawn separately by
+ * [HighlightOverlay]; this is the part that has to stay readable and out of the
+ * way, so it is draggable and deliberately small.
  */
 class OverlayWidget(private val context: Context) {
 
@@ -26,13 +25,8 @@ class OverlayWidget(private val context: Context) {
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private var root: View? = null
-    private var engine: WebView? = null
-    private var isEngineReady = false
 
-    /** Held so text arriving before the engine finishes loading is not lost. */
-    private var pendingText: String? = null
-
-    @SuppressLint("SetJavaScriptEnabled", "InflateParams", "ClickableViewAccessibility")
+    @SuppressLint("InflateParams")
     fun show() {
         if (root != null) return
 
@@ -42,8 +36,9 @@ class OverlayWidget(private val context: Context) {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
-            // NOT_FOCUSABLE is essential: without it the panel steals input and
-            // you could not type in the app underneath it.
+            // NOT_FOCUSABLE is essential: without it the panel takes input and
+            // you could not type in the app underneath. NOT_TOUCH_MODAL lets
+            // touches outside the panel reach that app.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
@@ -54,21 +49,6 @@ class OverlayWidget(private val context: Context) {
         }
 
         makeDraggable(view, params)
-
-        // The engine web view is never added to the window — it exists purely to
-        // run the analysis, so it has no size and is never drawn.
-        engine = WebView(context).apply {
-            settings.javaScriptEnabled = true
-            webViewClient = object : android.webkit.WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    isEngineReady = true
-                    pendingText?.let { update(it) }
-                    pendingText = null
-                }
-            }
-            loadUrl("file:///android_asset/hemingway.html")
-        }
-
         windowManager.addView(view, params)
         root = view
     }
@@ -76,42 +56,25 @@ class OverlayWidget(private val context: Context) {
     fun hide() {
         root?.let { runCatching { windowManager.removeView(it) } }
         root = null
-        engine?.destroy()
-        engine = null
-        isEngineReady = false
     }
 
-    fun update(text: String) {
-        val webView = engine ?: return
-        if (!isEngineReady) {
-            pendingText = text
-            return
-        }
-
-        val literal = JSONObject.quote(text)
-        webView.evaluateJavascript("window.hemingway.analyze($literal);") { encoded ->
-            val json = decodeJsString(encoded) ?: return@evaluateJavascript
-            runCatching { render(JSONObject(json)) }
-        }
-    }
-
-    private fun render(result: JSONObject) {
+    fun render(result: JSONObject) {
         val view = root ?: return
-        val totals = result.getJSONObject("totals")
+        val totals = result.optJSONObject("totals") ?: return
 
         view.findViewById<TextView>(R.id.grade).text =
-            context.getString(R.string.widget_grade, result.getInt("grade"))
-        view.findViewById<TextView>(R.id.label).text = result.getString("label")
+            context.getString(R.string.widget_grade, result.optInt("grade"))
+        view.findViewById<TextView>(R.id.label).text = result.optString("label")
         view.findViewById<TextView>(R.id.counts).text = context.getString(
             R.string.widget_counts,
-            totals.getInt("adverbs"),
-            totals.getInt("passiveVoice"),
-            totals.getInt("complex"),
-            totals.getInt("hardSentences") + totals.getInt("veryHardSentences")
+            totals.optInt("adverbs"),
+            totals.optInt("passiveVoice"),
+            totals.optInt("complex"),
+            totals.optInt("hardSentences") + totals.optInt("veryHardSentences")
         )
     }
 
-    /** Lets the panel be moved out of the way of whatever is underneath it. */
+    /** Lets the panel be moved off whatever it is covering. */
     @SuppressLint("ClickableViewAccessibility")
     private fun makeDraggable(view: View, params: WindowManager.LayoutParams) {
         var startX = 0
@@ -146,9 +109,4 @@ class OverlayWidget(private val context: Context) {
             @Suppress("DEPRECATION")
             WindowManager.LayoutParams.TYPE_PHONE
         }
-
-    private fun decodeJsString(encoded: String?): String? {
-        if (encoded == null || encoded == "null") return null
-        return runCatching { JSONObject("{\"v\":$encoded}").getString("v") }.getOrNull()
-    }
 }

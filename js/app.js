@@ -2,7 +2,7 @@
 // keeps the caret in place across re-renders, normalizes pasted content to
 // plain text, and drives the stats panel + dark mode toggle.
 
-import { analyzeText, gradeLevelLabel } from "./analyze.js";
+import { analyzeText, gradeLevelLabel, flattenHighlights } from "./analyze.js";
 import { renderDocument } from "./render.js";
 
 const DEBOUNCE_MS = 250;
@@ -228,6 +228,14 @@ window.hemingway = {
       label: gradeLevelLabel(analysis.overallGrade),
       totals: analysis.totals
     });
+  },
+  // Character ranges to colour, absolute to `text`. The Android overlay pairs
+  // these with per-character pixel rectangles from the accessibility API to
+  // paint highlights directly over words in another app's text field, so it
+  // needs positions rather than markup.
+  highlights(text) {
+    const analysis = analyzeText(typeof text === "string" ? text : "");
+    return JSON.stringify(flattenHighlights(analysis));
   }
 };
 
