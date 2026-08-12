@@ -35,11 +35,9 @@ class AnalysisEngine(context: Context) {
         loadUrl("file:///android_asset/hemingway.html")
     }
 
-    fun stats(text: String, onResult: (JSONObject) -> Unit) =
+    /** Score, totals and located issues — everything the panel shows. */
+    fun analyze(text: String, onResult: (JSONObject) -> Unit) =
         call("analyze", text) { json -> runCatching { onResult(JSONObject(json)) } }
-
-    fun highlights(text: String, onResult: (List<HighlightRange>) -> Unit) =
-        call("highlights", text) { json -> onResult(HighlightMapper.parseRanges(json)) }
 
     fun destroy() {
         pending = null

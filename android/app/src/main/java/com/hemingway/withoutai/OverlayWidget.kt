@@ -62,7 +62,7 @@ class OverlayWidget(
         }
 
         // Only the header drags, so dragging never swallows a tap on a row.
-        makeDraggable(view.findViewById(R.id.header), view, params)
+        makeDraggable(view.findViewById<View>(R.id.header), view, params)
 
         windowManager.addView(view, params)
         root = view
