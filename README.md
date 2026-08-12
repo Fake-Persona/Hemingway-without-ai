@@ -26,8 +26,13 @@ This started as a port of [SamWSoftware's "Fake Hemingway"](https://github.com/S
 There are three ways, depending on what you want:
 
 **1. As a hosted website.** Pushing to `main` publishes the site via GitHub Pages at
-`https://<your-username>.github.io/Hemingway-without-ai/`. The workflow enables Pages
-itself on its first run, so a fresh clone or fork deploys without touching any settings.
+`https://<your-username>.github.io/Hemingway-without-ai/`.
+
+Pages has to be switched on once before the first deploy can succeed:
+**Settings → Pages → Build and deployment → Source: GitHub Actions**. This step can't be
+automated — creating a Pages site requires `administration: write`, and a workflow's
+`GITHUB_TOKEN` can't hold that permission. Until it's on, the deploy job fails at
+`configure-pages` with `Get Pages site failed`.
 
 **2. As a single file, no server.** Download **`hemingway.html`** and double-click it.
 Everything — styles, word lists, all the logic — is inlined into that one file, so it
