@@ -68,8 +68,14 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_FOCUSED,
             AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED -> Unit
+
+            // Focus moving means a different field, so the cached text no longer
+            // describes what is in front of you. Without clearing it, moving
+            // between two fields holding identical text kept the previous
+            // field's positions and selected in the wrong place.
+            AccessibilityEvent.TYPE_VIEW_FOCUSED -> lastText = null
+
             else -> return
         }
 
@@ -120,18 +126,65 @@ class HemingwayAccessibilityService : AccessibilityService() {
             return
         }
 
-        val length = node.text?.length ?: 0
-        val start = issue.start.coerceIn(0, length)
-        val end = issue.end.coerceIn(start, length)
+        val current = node.text?.toString().orEmpty()
+        val range = locate(current, issue)
+        if (range == null) {
+            node.recycleCompat()
+            report("phrase no longer present")
+            return
+        }
 
         val args = Bundle().apply {
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, start)
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, end)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, range.first)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, range.last)
         }
         val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, args)
         node.recycleCompat()
 
         if (!ok) report("selection refused by app")
+    }
+
+    /**
+     * Works out where an issue's phrase sits in the text *now*.
+     *
+     * Recorded offsets describe the text as it was when analysed, and analysis
+     * is asynchronous, so anything typed in between shifts everything after the
+     * caret. Selecting by the stored numbers landed slightly off after a few
+     * keystrokes, and badly off after a line was added.
+     *
+     * The recorded position is still a good hint — it disambiguates a word that
+     * appears several times — so it is checked first, then used to pick the
+     * nearest occurrence if the text has moved underneath it.
+     *
+     * Returns first..last as an exclusive end, matching what ACTION_SET_SELECTION
+     * expects, or null when the phrase has been edited away entirely.
+     */
+    private fun locate(current: String, issue: Issue): IntRange? {
+        val phrase = issue.text
+        if (phrase.isEmpty() || current.isEmpty()) return null
+
+        // Unchanged since analysis: the recorded span still holds the phrase.
+        if (issue.start >= 0 && issue.end <= current.length &&
+            current.regionMatches(issue.start, phrase, 0, phrase.length)
+        ) {
+            return issue.start..issue.end
+        }
+
+        var best = -1
+        var bestDistance = Int.MAX_VALUE
+        var from = 0
+        while (true) {
+            val found = current.indexOf(phrase, from)
+            if (found < 0) break
+            val distance = kotlin.math.abs(found - issue.start)
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = found
+            }
+            from = found + 1
+        }
+
+        return if (best < 0) null else best..(best + phrase.length)
     }
 
     /**
