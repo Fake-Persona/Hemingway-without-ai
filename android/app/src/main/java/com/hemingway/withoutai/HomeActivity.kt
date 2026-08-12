@@ -1,22 +1,21 @@
 package com.hemingway.withoutai
 
-import android.app.Activity
-import android.os.Bundle
-
 /**
- * The app's launcher screen. It explains how to use Hemingway, because the
- * feature itself lives in the text-selection menu rather than in here.
+ * The launcher entry, and the fallback for apps that offer no way out.
  *
- * It also exists for a load-bearing reason: a freshly installed app stays in
- * Android's "stopped" state until the user opens it once, and a stopped app's
- * components are skipped when the system resolves intents. With no launcher
- * activity there was no way to open the app at all, so its PROCESS_TEXT
- * activity never became eligible for the selection toolbar. This screen is what
- * makes that first launch possible.
+ * Some editors — Obsidian among them — draw their own text-selection menu, so
+ * Android's system toolbar never appears and a `PROCESS_TEXT` entry can never
+ * be shown there. Nothing this app does can change that. What it can do is be
+ * somewhere to paste into, which works from anywhere that can copy.
+ *
+ * It is deliberately the same screen as [ProcessTextActivity] rather than a
+ * separate editor: launched with no incoming text, the base class shows the
+ * page's own demo text and hides Replace, since there is nowhere to write back
+ * to. Long-press and paste to analyse anything.
+ *
+ * Having any launcher activity is also load-bearing: a freshly installed app
+ * stays in Android's "stopped" state until opened once, and a stopped app's
+ * components are skipped when the system resolves intents — which is why the
+ * selection-toolbar entry never appeared before this existed.
  */
-class HomeActivity : Activity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home)
-    }
-}
+class HomeActivity : ProcessTextActivity()

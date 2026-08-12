@@ -6,10 +6,4 @@
     <string name="replace_selection">Replace selection</string>
     <string name="could_not_read_text">Could not read the edited text</string>
 
-    <!-- Home screen -->
-    <string name="home_tagline">Readability feedback for anything you write. No AI, no account, works offline.</string>
-    <string name="home_how_title">How to use it</string>
-    <string name="home_how_steps">There is nothing to set up, and nothing to do on this screen.\n\n1. Select some text in any app\n2. Tap <b>Hemingway</b> in the popup menu — it is often behind the ⋮ overflow\n3. Adverbs, passive voice, complex phrases and hard sentences are highlighted\n4. Edit it there, then tap <b>Replace selection</b> to send it back</string>
-    <string name="home_privacy_title">Privacy</string>
-    <string name="home_privacy_body">The app requests no permissions at all — not even internet access. Everything is analysed on your device, so your writing cannot leave it.</string>
 </resources>

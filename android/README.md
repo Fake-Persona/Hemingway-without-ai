@@ -10,17 +10,16 @@ loading a bundled copy of `hemingway.html`, the same single-file build the websi
 
 ## Status
 
-Tier A of the Android plan, and the only tier in the tree right now — the live overlay
-widget was removed until this one actually works.
+Tier A of the Android plan, and the only tier in the tree — the live overlay widget was
+removed until this one works properly.
 
-**Known bug being fixed:** in the first build, **Hemingway never appeared in the selection
-toolbar**. The likely cause is that the app shipped with no launcher icon, so it could
-never be opened; a freshly installed Android app stays in the "stopped" state until the
-user opens it once, and a stopped app's components are skipped when the system resolves
-intents. A launcher screen and an explicit icon are now in place. Unconfirmed until
-someone installs it and reports back.
+Confirmed working in WhatsApp on a real device. The earlier bug where Hemingway never
+appeared in the selection toolbar is fixed: the app shipped with no launcher icon, so it
+could never be opened, and a freshly installed Android app stays in the "stopped" state
+until opened once, with its components skipped during intent resolution.
 
-Compiles in CI, but nothing here has been driven on a real device by its author.
+**Open the app once after installing.** That first launch is what makes the
+selection-toolbar entry appear at all.
 
 ## Building
 
@@ -63,17 +62,28 @@ aapt dump permissions app/build/outputs/apk/debug/app-debug.apk
 
 ## Using it
 
-**Open the app once after installing.** It only shows a short help screen, but that first
-launch is what takes the app out of Android's "stopped" state and makes it eligible to
-appear in the selection toolbar at all.
+Three routes in, because no single one reaches every app.
 
-1. Select text in any app
-2. Tap **Hemingway** in the toolbar that appears (often behind the ⋮ overflow)
-3. Read the highlights; edit in place if you want
-4. **Replace selection** writes your edited text back
+**1. Selection toolbar** — the good one. Select text, tap **Hemingway** in the popup
+(often behind the ⋮ overflow), edit, then **Replace selection** to write it back. This is
+the only route that can return text to where it came from. Works in WhatsApp, Gmail,
+Chrome and anything else using Android's own selection menu.
 
-Replace is hidden when the calling app marks the selection read-only, since there's
-nowhere to write back to.
+**2. Share sheet** — select text, **Share**, pick **Hemingway**. For apps that draw their
+own selection menu and so never show a `PROCESS_TEXT` entry. Read-only: sharing gives no
+channel back, so Replace is hidden.
+
+**3. Open the app and paste** — the last resort, and it works from anywhere that can copy.
+
+### Apps that draw their own selection menu
+
+Some editors — **Obsidian** is the known case — render their own text-selection popup
+instead of Android's. The system toolbar never appears there, so no `PROCESS_TEXT` entry
+can ever be shown, and **no change to this app can force one in**. If such an app offers
+Share, route 2 works; otherwise copy and paste into the app.
+
+Genuine in-place feedback in those apps needs the accessibility-service route (Tier B),
+which reads the focused field directly rather than waiting to be offered the text.
 
 ## If something goes wrong
 

@@ -11,23 +11,32 @@ import android.widget.Toast
 import org.json.JSONObject
 
 /**
- * Entry point for the text-selection toolbar: select text in any app, tap
- * "Hemingway", read the analysis, optionally send an edited version back.
+ * Shows the analysis for a piece of text handed over by another app.
  *
- * The analysis engine is the same `hemingway.html` the website ships — one
- * self-contained file, bundled as an asset and loaded over `file://`. Nothing
- * is ported or reimplemented here, so the phone can never drift from the web
- * version, and the app needs no network permission to do its job.
+ * Reached three ways, because no single one covers every app:
+ *
+ *  - **Selection toolbar** (`PROCESS_TEXT`) — the good path, and the only one
+ *    that can write edited text back. Works wherever the app uses Android's own
+ *    selection menu, e.g. WhatsApp.
+ *  - **Share sheet** (`SEND`) — for apps that draw their own selection menu and
+ *    so never show a `PROCESS_TEXT` entry, but do offer Share.
+ *  - **Opened directly** — [HomeActivity] shows the same editor to paste into,
+ *    which is the last resort for apps offering neither.
+ *
+ * The analysis engine is the same `hemingway.html` the website ships, bundled
+ * as an asset and loaded over `file://`. Nothing is reimplemented here, so the
+ * phone cannot drift from the web version, and no network permission is needed.
  */
-class ProcessTextActivity : Activity() {
+open class ProcessTextActivity : Activity() {
 
     private lateinit var webView: WebView
 
     /**
-     * When the host marks the selection read-only we cannot write back, so the
-     * Replace button is hidden rather than left to fail silently.
+     * Only the selection-toolbar path can return text to where it came from.
+     * Shared text has no channel back, so Replace is hidden rather than left to
+     * fail silently.
      */
-    private var isReadOnly = true
+    private var canReplace = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,13 +46,9 @@ class ProcessTextActivity : Activity() {
         webView = findViewById(R.id.editor)
         val replaceButton = findViewById<Button>(R.id.replace)
 
-        val selectedText = intent
-            .getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)
-            ?.toString()
-            .orEmpty()
-
-        isReadOnly = intent.getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false)
-        replaceButton.visibility = if (isReadOnly) View.GONE else View.VISIBLE
+        val incoming = readIncomingText()
+        canReplace = incoming.canWriteBack
+        replaceButton.visibility = if (canReplace) View.VISIBLE else View.GONE
         replaceButton.setOnClickListener { returnEditedText() }
 
         // JavaScript is required: the page *is* the application. It only ever
@@ -52,20 +57,35 @@ class ProcessTextActivity : Activity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
 
-        // Push the selection in only after the page's own scripts have run,
+        // Push the text in only after the page's own scripts have run,
         // otherwise window.hemingway does not exist yet.
         webView.webViewClient = object : android.webkit.WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (selectedText.isNotEmpty()) setEditorText(selectedText)
+                if (incoming.text.isNotEmpty()) setEditorText(incoming.text)
             }
         }
 
         webView.loadUrl("file:///android_asset/hemingway.html")
     }
 
+    private data class Incoming(val text: String, val canWriteBack: Boolean)
+
+    private fun readIncomingText(): Incoming = when (intent?.action) {
+        Intent.ACTION_PROCESS_TEXT -> {
+            val text = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString().orEmpty()
+            val readOnly = intent.getBooleanExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, false)
+            Incoming(text, canWriteBack = !readOnly)
+        }
+        Intent.ACTION_SEND -> Incoming(
+            intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
+            canWriteBack = false
+        )
+        else -> Incoming("", canWriteBack = false)
+    }
+
     /**
      * Hands text to the page. JSONObject.quote does the escaping, so quotes,
-     * backslashes and newlines in the selection cannot break out of the string
+     * backslashes and newlines in the text cannot break out of the string
      * literal and turn user text into executable script.
      */
     private fun setEditorText(text: String) {

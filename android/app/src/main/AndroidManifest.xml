@@ -16,11 +16,13 @@
         android:theme="@style/Theme.Hemingway">
 
         <!--
-          Load-bearing, not decoration. A freshly installed app stays in
-          Android's "stopped" state until the user opens it once, and a stopped
-          app's components are skipped when the system resolves intents. With no
-          launcher activity there was no way to open the app at all, so its
-          PROCESS_TEXT activity never became eligible for the selection toolbar.
+          The launcher entry, and the fallback for apps whose own selection menu
+          offers no way to reach us — paste into it instead.
+
+          Also load-bearing: a freshly installed app stays in Android's
+          "stopped" state until opened once, and a stopped app's components are
+          skipped when the system resolves intents. Without this the
+          PROCESS_TEXT entry below never appeared at all.
         -->
         <activity
             android:name=".HomeActivity"
@@ -32,20 +34,34 @@
         </activity>
 
         <!--
-          PROCESS_TEXT puts this app in the floating toolbar that appears when
-          you select text in ANY app. The label is what shows there, so it is
-          kept short, and an explicit icon is set because that toolbar renders
-          icon-and-label and can skip entries it cannot draw.
+          Two ways in from other apps, because no single one covers them all:
+
+          PROCESS_TEXT puts Hemingway in the floating toolbar Android shows when
+          you select text. It is the better path — only it can write edited text
+          back — but it only appears in apps that use the system selection menu.
+
+          SEND covers apps that draw their own selection menu, so never show a
+          PROCESS_TEXT entry, but do offer Share. Obsidian is the case that
+          prompted this.
+
+          Dialog-themed so it floats over the app you were writing in rather
+          than replacing it.
         -->
         <activity
             android:name=".ProcessTextActivity"
             android:exported="true"
             android:icon="@drawable/ic_hemingway"
             android:label="@string/process_text_label"
+            android:theme="@style/Theme.Hemingway.Dialog"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
