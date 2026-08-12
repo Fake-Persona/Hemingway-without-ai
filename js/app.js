@@ -216,6 +216,18 @@ window.hemingway = {
   },
   getText() {
     return readEditorText(editor);
+  },
+  // Stats only, without touching the DOM. The Android floating panel reports on
+  // text you are typing in a different app, so it needs the numbers without
+  // rendering an editor it will never show. Returns a JSON string because that
+  // is what survives the web view bridge intact.
+  analyze(text) {
+    const analysis = analyzeText(typeof text === "string" ? text : "");
+    return JSON.stringify({
+      grade: analysis.overallGrade,
+      label: gradeLevelLabel(analysis.overallGrade),
+      totals: analysis.totals
+    });
   }
 };
 

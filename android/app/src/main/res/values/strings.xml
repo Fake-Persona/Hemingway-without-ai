@@ -6,4 +6,28 @@
     <string name="replace_selection">Replace selection</string>
     <string name="could_not_read_text">Could not read the edited text</string>
 
+    <!-- Setup screen -->
+    <string name="setup_intro">Two things must be switched on for live feedback while you type. Android only allows granting them from system settings, so each button opens the right page.</string>
+    <string name="granted">Granted</string>
+    <string name="not_granted">Not granted yet</string>
+    <string name="status_ready">Live feedback is on — the panel appears while you type.</string>
+    <string name="status_incomplete">Live feedback is off — both grants below are needed.</string>
+
+    <string name="perm_overlay_title">1. Display over other apps</string>
+    <string name="perm_overlay_why">Lets the small feedback panel float above whatever app you are writing in.</string>
+    <string name="perm_overlay_button">Open settings</string>
+
+    <string name="perm_a11y_title">2. Accessibility service</string>
+    <string name="perm_a11y_why">Lets the app read the text field you are typing in, which is the only way Android allows feedback inside other apps. Find "Hemingway" in the list and turn it on. Nothing is stored or sent anywhere — the app has no internet permission at all.</string>
+    <string name="perm_a11y_button">Open accessibility settings</string>
+    <string name="a11y_description">Reads the text field you are currently typing in so Hemingway can show readability feedback. Nothing is stored or transmitted; the app declares no internet permission.</string>
+
+    <string name="other_ways_title">Without any permissions</string>
+    <string name="other_ways_body">Select text in most apps and choose Hemingway from the popup menu, or share it here. Apps that draw their own selection menu — Obsidian, for one — offer neither, so paste into the editor instead.</string>
+    <string name="open_editor_button">Open editor</string>
+
+    <!-- Floating widget -->
+    <string name="widget_placeholder">—</string>
+    <string name="widget_grade">Grade %1$d</string>
+    <string name="widget_counts">%1$d adverbs · %2$d passive · %3$d complex · %4$d hard</string>
 </resources>
