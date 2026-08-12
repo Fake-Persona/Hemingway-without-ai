@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hemingway (without AI)</title>
+  <script>
+    (function () {
+      var stored = localStorage.getItem("hemingway-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = stored || (prefersDark ? "dark" : "light");
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Hemingway <span class="subtitle">without AI</span></h1>
+    <label class="theme-switch">
+      <input type="checkbox" id="theme-toggle" aria-label="Toggle dark mode">
+      <span class="theme-switch-track" aria-hidden="true"></span>
+      <span>Dark mode</span>
+    </label>
+  </header>
+
+  <main class="layout">
+    <section class="editor-pane">
+      <div
+        id="editor"
+        class="editor"
+        contenteditable="true"
+        spellcheck="true"
+        aria-label="Text editor"
+      ></div>
+    </section>
+
+    <aside class="stats-pane" aria-label="Readability stats">
+      <div class="grade-card">
+        <div class="grade-value" id="grade-value">–</div>
+        <div class="grade-caption">
+          <div>Grade level</div>
+          <div class="grade-label" id="grade-label">Start writing to see your grade level</div>
+        </div>
+      </div>
+
+      <div id="stat-adverb" class="counter adverb"></div>
+      <div id="stat-passive" class="counter passive"></div>
+      <div id="stat-complex" class="counter complex"></div>
+      <div id="stat-hard" class="counter hardSentence"></div>
+      <div id="stat-very-hard" class="counter veryHardSentence"></div>
+    </aside>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
