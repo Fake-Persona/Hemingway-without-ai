@@ -46,25 +46,19 @@ jobs:
           ./gradlew assembleDebug --stacktrace
 
       # Checks the privacy claim mechanically instead of asserting it in a
-      # README. SYSTEM_ALERT_WINDOW is expected — it is what lets the feedback
-      # panel float over other apps. Anything else, and INTERNET above all, is a
-      # build failure: without it the app cannot transmit your writing even if a
-      # future change tried to.
-      - name: Verify APK permissions are limited to the overlay
+      # README: the app must declare no permissions at all, INTERNET included.
+      - name: Verify the APK requests no permissions
         run: |
           AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)"
           echo "using $AAPT"
           PERMS="$("$AAPT" dump permissions android/app/build/outputs/apk/debug/app-debug.apk \
             | grep -oE 'android\.permission\.[A-Z_]+' | sort -u || true)"
-          echo "declared: ${PERMS:-<none>}"
-
-          UNEXPECTED="$(echo "$PERMS" | grep -v '^android\.permission\.SYSTEM_ALERT_WINDOW$' || true)"
-          if [ -n "$UNEXPECTED" ]; then
-            echo "::error::APK declares unexpected permissions:"
-            echo "$UNEXPECTED"
+          if [ -n "$PERMS" ]; then
+            echo "::error::APK declares permissions, expected none:"
+            echo "$PERMS"
             exit 1
           fi
-          echo "OK: only SYSTEM_ALERT_WINDOW, and no INTERNET"
+          echo "OK: no permissions declared"
 
       - uses: actions/upload-artifact@v4
         with:

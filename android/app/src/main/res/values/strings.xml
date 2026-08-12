@@ -6,26 +6,10 @@
     <string name="replace_selection">Replace selection</string>
     <string name="could_not_read_text">Could not read the edited text</string>
 
-    <!-- Setup screen -->
-    <string name="setup_intro">Two things have to be switched on for live feedback while you type. Android only lets you grant them from system settings, so each button opens the right page.</string>
-    <string name="granted">Granted</string>
-    <string name="not_granted">Not granted yet</string>
-    <string name="status_ready">Ready — the panel will appear while you type.</string>
-    <string name="status_incomplete">Not active yet — both permissions below are needed.</string>
-
-    <string name="perm_overlay_title">1. Display over other apps</string>
-    <string name="perm_overlay_why">Lets the small feedback panel float above whatever app you are writing in.</string>
-    <string name="perm_overlay_button">Open settings</string>
-
-    <string name="perm_a11y_title">2. Accessibility service</string>
-    <string name="perm_a11y_why">Lets the app read the text field you are typing in so it can analyse it. Find "Hemingway" in the list and turn it on. Nothing is stored or sent anywhere — the app has no internet permission at all.</string>
-    <string name="perm_a11y_button">Open accessibility settings</string>
-    <string name="a11y_description">Reads the text field you are currently typing in so Hemingway can show readability feedback. Nothing is stored or transmitted; the app declares no internet permission.</string>
-
-    <string name="setup_also">You can also select any text in any app and choose Hemingway from the popup menu — that works without either permission.</string>
-
-    <!-- Floating widget -->
-    <string name="widget_placeholder">—</string>
-    <string name="widget_grade">Grade %1$d</string>
-    <string name="widget_counts">%1$d adverbs · %2$d passive · %3$d complex · %4$d hard</string>
+    <!-- Home screen -->
+    <string name="home_tagline">Readability feedback for anything you write. No AI, no account, works offline.</string>
+    <string name="home_how_title">How to use it</string>
+    <string name="home_how_steps">There is nothing to set up, and nothing to do on this screen.\n\n1. Select some text in any app\n2. Tap <b>Hemingway</b> in the popup menu — it is often behind the ⋮ overflow\n3. Adverbs, passive voice, complex phrases and hard sentences are highlighted\n4. Edit it there, then tap <b>Replace selection</b> to send it back</string>
+    <string name="home_privacy_title">Privacy</string>
+    <string name="home_privacy_body">The app requests no permissions at all — not even internet access. Everything is analysed on your device, so your writing cannot leave it.</string>
 </resources>

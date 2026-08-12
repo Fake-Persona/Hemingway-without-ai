@@ -10,9 +10,17 @@ loading a bundled copy of `hemingway.html`, the same single-file build the websi
 
 ## Status
 
-Tier A of the Android plan. The source is complete but **has not been compiled or run** —
-it was written in an environment with no Android SDK and no route to download one, so the
-build below has not been executed. Treat the first local build as the real verification.
+Tier A of the Android plan, and the only tier in the tree right now — the live overlay
+widget was removed until this one actually works.
+
+**Known bug being fixed:** in the first build, **Hemingway never appeared in the selection
+toolbar**. The likely cause is that the app shipped with no launcher icon, so it could
+never be opened; a freshly installed Android app stays in the "stopped" state until the
+user opens it once, and a stopped app's components are skipped when the system resolves
+intents. A launcher screen and an explicit icon are now in place. Unconfirmed until
+someone installs it and reports back.
+
+Compiles in CI, but nothing here has been driven on a real device by its author.
 
 ## Building
 
@@ -55,9 +63,9 @@ aapt dump permissions app/build/outputs/apk/debug/app-debug.apk
 
 ## Using it
 
-The app has **no launcher icon** — it isn't something you open, it's something that
-appears when you select text. That's intentional, but it does mean nothing shows up on
-your home screen after installing.
+**Open the app once after installing.** It only shows a short help screen, but that first
+launch is what takes the app out of Android's "stopped" state and makes it eligible to
+appear in the selection toolbar at all.
 
 1. Select text in any app
 2. Tap **Hemingway** in the toolbar that appears (often behind the ⋮ overflow)
@@ -75,7 +83,7 @@ Since this hasn't been compiled yet, here's where to look first:
 | --- | --- |
 | `hemingway.html not found` | `npm run build` wasn't run from the repo root |
 | `SDK location not found` | No `local.properties` and no `ANDROID_HOME` |
-| **Hemingway** missing from the toolbar | Check the ⋮ overflow; some apps use a custom selection menu that suppresses `PROCESS_TEXT` entirely |
+| **Hemingway** missing from the toolbar | Open the app once first (stopped-state, see above), then check the ⋮ overflow. Some apps ship a custom selection menu that suppresses `PROCESS_TEXT` entirely — try a plain one like Gmail or Chrome before concluding it is broken |
 | Blank white screen | The asset didn't make it into the APK — check `copyEngine` ran, or unzip the APK and look for `assets/hemingway.html` |
 | Replace button never appears | The calling app marked the selection read-only, which is expected in some fields |
 

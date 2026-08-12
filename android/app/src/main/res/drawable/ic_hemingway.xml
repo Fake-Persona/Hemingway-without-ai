@@ -1,0 +1,20 @@
+<!--
+  A vector drawable rather than PNG densities: one file, no bitmaps to generate,
+  and it scales for both the launcher and the text-selection toolbar. An "H" over
+  a rounded square, matching the favicon the website uses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:fillColor="#2F6FED"
+        android:pathData="M8,0 L40,0 A8,8 0 0 1 48,8 L48,40 A8,8 0 0 1 40,48 L8,48 A8,8 0 0 1 0,40 L0,8 A8,8 0 0 1 8,0 Z" />
+
+    <!-- H: two uprights joined by a crossbar -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M13,11 L19,11 L19,21 L29,21 L29,11 L35,11 L35,37 L29,37 L29,27 L19,27 L19,37 L13,37 Z" />
+</vector>
