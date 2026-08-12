@@ -1,0 +1,82 @@
+name: Build Android APK
+
+# Runs on the feature branches too: the Kotlin has never been compiled locally
+# (no Android SDK available there), so CI is the first thing that ever type-checks
+# it. Better to find that out here than on a phone.
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # No install step: the project has zero dependencies and no lockfile, so
+      # `npm ci` would fail. build.js runs on plain Node.
+      - name: Build the engine
+        run: npm run build
+
+      # The APK embeds hemingway.html. If the committed copy were stale, the
+      # phone would quietly ship different behaviour from the website.
+      - name: Fail if committed engine build is stale
+        run: git diff --exit-code -- hemingway.html
+
+      # The Android SDK is preinstalled on GitHub-hosted runners; only the JDK
+      # needs setting up.
+      - name: Build APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      # Checks the privacy claim mechanically instead of asserting it in a
+      # README: the app must declare no permissions at all, INTERNET included.
+      - name: Verify the APK requests no permissions
+        run: |
+          AAPT="$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)"
+          echo "using $AAPT"
+          PERMS="$("$AAPT" dump permissions android/app/build/outputs/apk/debug/app-debug.apk \
+            | grep -E '^\s*uses-permission' || true)"
+          if [ -n "$PERMS" ]; then
+            echo "::error::APK declares permissions, expected none:"
+            echo "$PERMS"
+            exit 1
+          fi
+          echo "OK: no permissions declared"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hemingway-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # A rolling prerelease gives a stable URL that installs straight from a
+      # phone browser. Workflow artifacts are zipped and require being signed
+      # in, which makes them awkward to use from a phone.
+      - name: Publish to the rolling "latest-android" release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest-android --yes --cleanup-tag || true
+          gh release create latest-android \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            --title "Hemingway for Android (latest)" \
+            --prerelease \
+            --notes "Debug build of ${{ github.sha }}. Sideload it: tap the .apk below on your phone and allow installs from your browser. Declares no permissions, not even INTERNET."
