@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      No permissions are declared at all — deliberately, and notably no
+      INTERNET. The whole analysis runs offline inside a WebView loading a
+      bundled asset, so the app is structurally incapable of sending your
+      writing anywhere. That claim is verifiable with `aapt dump permissions`.
+    -->
+
+    <!--
+      No android:icon: there is no launcher activity to attach one to, and
+      referencing a mipmap that does not exist would fail the build. Add one
+      later if the app ever grows a home screen entry.
+    -->
+    <application
+        android:allowBackup="false"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Hemingway">
+
+        <!--
+          PROCESS_TEXT puts this app in the floating toolbar that appears when
+          you select text in ANY app. android:label is what shows there, so it
+          is kept short.
+
+          Not exported as a launcher activity: the app has no home screen of
+          its own to speak of, it exists to be invoked from a text selection.
+        -->
+        <activity
+            android:name=".ProcessTextActivity"
+            android:exported="true"
+            android:label="@string/process_text_label"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

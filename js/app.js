@@ -204,6 +204,21 @@ function loadInitialText(text) {
 
 loadInitialText(DEFAULT_TEXT);
 
+// --- Embedding bridge ---
+//
+// A stable, minimal surface for a host that embeds this page in a web view
+// (the Android app passes in the text you selected in another app, and reads
+// back whatever you edited). Keeping it to two functions means the host never
+// reaches into the DOM or internals, so this file stays free to change.
+window.hemingway = {
+  setText(text) {
+    loadInitialText(typeof text === "string" ? text : "");
+  },
+  getText() {
+    return readEditorText(editor);
+  }
+};
+
 // --- Dark mode ---
 
 function applyTheme(theme) {

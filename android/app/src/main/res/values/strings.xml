@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hemingway</string>
+    <!-- Shown in the floating text-selection toolbar, so it must stay short. -->
+    <string name="process_text_label">Hemingway</string>
+    <string name="replace_selection">Replace selection</string>
+    <string name="could_not_read_text">Could not read the edited text</string>
+</resources>

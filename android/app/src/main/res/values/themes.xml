@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      DayNight so the system light/dark setting drives the Android chrome. The
+      page inside the WebView does its own theming from prefers-color-scheme,
+      so the two follow the same system preference without talking to each other.
+    -->
+    <style name="Theme.Hemingway" parent="@android:style/Theme.DeviceDefault.DayNight" />
+</resources>
