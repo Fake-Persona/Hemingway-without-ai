@@ -15,9 +15,10 @@ import android.view.accessibility.AccessibilityNodeInfo
  * not depend on being handed text through a menu, which is why it works in
  * editors that draw their own selection popup.
  *
- * It reads text from the focused node and nothing else. Nothing is logged,
- * stored or transmitted, and the app declares no INTERNET permission, so it
- * structurally cannot be.
+ * It reads text from the focused node and nothing else. **Your text is never
+ * logged, stored or transmitted** — the app declares no INTERNET permission, so
+ * it structurally cannot be. The diagnostics in [report] deliberately carry only
+ * a package name, a stage and character counts, never the text itself.
  */
 class HemingwayAccessibilityService : AccessibilityService() {
 
@@ -27,6 +28,9 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
     /** Skips redundant work when an event repeats text that has not changed. */
     private var lastText: String? = null
+
+    /** Last diagnostic line, so [report] only logs when the outcome changes. */
+    private var lastReport: String? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -45,12 +49,13 @@ class HemingwayAccessibilityService : AccessibilityService() {
             else -> return
         }
 
-        val node = findFocusedEditable()
+        val node = findFocusedTextNode()
         if (node == null) {
             // Nothing focused: stale colour over unrelated content would be
             // worse than none.
             highlights?.clear()
             lastText = null
+            report("no focused text node")
             return
         }
 
@@ -78,12 +83,44 @@ class HemingwayAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    private fun findFocusedEditable(): AccessibilityNodeInfo? {
-        val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return null
-        return if (focused.isEditable) focused else {
-            focused.recycleCompat()
-            null
-        }
+    /**
+     * Finds the field being typed in.
+     *
+     * Deliberately more permissive than "is it editable". Apps that render
+     * their editor inside a WebView — Obsidian runs CodeMirror in one — expose
+     * the focused element as a contenteditable that often does not set the
+     * editable flag at all. Requiring it meant those apps were rejected before
+     * anything was even attempted, which is why no highlights appeared there.
+     *
+     * Anything focused that actually carries text is worth analysing.
+     */
+    private fun findFocusedTextNode(): AccessibilityNodeInfo? {
+        val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            ?: rootInActiveWindow?.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            ?: return null
+
+        if (focused.isEditable || !focused.text.isNullOrEmpty()) return focused
+
+        focused.recycleCompat()
+        return null
+    }
+
+    /**
+     * Logs why a given app is or is not working, throttled to one line per
+     * distinct outcome so typing does not flood the log.
+     *
+     * Whether an app cooperates depends on how it draws its text, and that
+     * cannot be determined from here — this turns "it doesn't work in X" into
+     * which specific stage failed:
+     *
+     *     adb logcat -s HemingwayProbe
+     */
+    private fun report(stage: String, extra: String = "") {
+        val app = rootInActiveWindow?.packageName?.toString() ?: "unknown"
+        val line = "$app: $stage $extra".trim()
+        if (line == lastReport) return
+        lastReport = line
+        android.util.Log.i(PROBE_TAG, line)
     }
 
     /**
@@ -101,6 +138,7 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || text.isEmpty()) {
             overlay.clear()
+            report("no text, or API below 26")
             return
         }
 
@@ -118,6 +156,7 @@ class HemingwayAccessibilityService : AccessibilityService() {
         )
         if (!refreshed) {
             overlay.clear()
+            report("refreshWithExtraData refused", "(text=${text.length})")
             return
         }
 
@@ -125,10 +164,13 @@ class HemingwayAccessibilityService : AccessibilityService() {
             ?.getParcelableArray(AccessibilityNodeInfo.EXTRA_DATA_TEXT_CHARACTER_LOCATION_KEY)
         if (parcelables.isNullOrEmpty()) {
             overlay.clear()
+            report("no character positions reported", "(text=${text.length})")
             return
         }
 
         val charRects = Array(parcelables.size) { parcelables[it] as? RectF }
+        val visible = charRects.count { it != null }
+        report("painting", "chars=${charRects.size} visible=$visible")
 
         engine?.highlights(text) { ranges ->
             overlay.draw(HighlightMapper.toRects(ranges, charRects))
@@ -146,5 +188,6 @@ class HemingwayAccessibilityService : AccessibilityService() {
 
     private companion object {
         const val MAX_CHARACTERS = 2000
+        const val PROBE_TAG = "HemingwayProbe"
     }
 }

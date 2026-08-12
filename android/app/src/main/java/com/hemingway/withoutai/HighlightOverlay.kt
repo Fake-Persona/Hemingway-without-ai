@@ -72,6 +72,7 @@ class HighlightOverlay(private val context: Context) {
 
         private var rects: List<HighlightRect> = emptyList()
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private val location = IntArray(2)
 
         fun setRects(value: List<HighlightRect>) {
             rects = value
@@ -80,6 +81,19 @@ class HighlightOverlay(private val context: Context) {
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
+
+            // The accessibility API reports positions in screen coordinates,
+            // but this view's own origin is wherever the window manager put it
+            // — typically below the status bar, which pushed every highlight
+            // down by that height, about two lines of text.
+            //
+            // Asking the view where it actually is, rather than assuming it
+            // starts at the top of the screen, corrects for the status bar,
+            // display cutouts and gesture insets without hardcoding any of them.
+            getLocationOnScreen(location)
+            canvas.save()
+            canvas.translate(-location[0].toFloat(), -location[1].toFloat())
+
             for (highlight in rects) {
                 // Translucent so the text underneath stays readable — this sits
                 // on top of the words rather than behind them, which is the
@@ -87,6 +101,8 @@ class HighlightOverlay(private val context: Context) {
                 paint.color = colorFor(highlight.type)
                 canvas.drawRoundRect(highlight.rect, CORNER, CORNER, paint)
             }
+
+            canvas.restore()
         }
 
         private fun colorFor(type: String): Int = when (type) {
