@@ -24,7 +24,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "lts/*"
 
       # Regenerate the standalone file so the copy served alongside the site
       # can never drift from the source it was built from.
@@ -34,7 +34,11 @@ jobs:
       - name: Fail if committed standalone build is stale
         run: git diff --exit-code -- hemingway.html
 
+      # enablement turns Pages on via the API when it isn't already, so a fresh
+      # clone or fork deploys without anyone visiting the repository settings.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
