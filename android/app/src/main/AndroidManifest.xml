@@ -2,17 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      No permissions are declared at all — deliberately, and notably no
-      INTERNET. The whole analysis runs offline inside a WebView loading a
-      bundled asset, so the app is structurally incapable of sending your
-      writing anywhere. That claim is verifiable with `aapt dump permissions`.
-    -->
+      SYSTEM_ALERT_WINDOW is the only permission declared, and it is what lets
+      the feedback panel float above other apps. Notably absent: INTERNET. The
+      analysis runs offline inside a WebView loading a bundled asset, so the app
+      is structurally incapable of sending your writing anywhere — verifiable
+      with `aapt dump permissions`, and CI fails the build if that ever changes.
 
-    <!--
-      No android:icon: there is no launcher activity to attach one to, and
-      referencing a mipmap that does not exist would fail the build. Add one
-      later if the app ever grows a home screen entry.
+      The accessibility service is not a permission; it is granted by switching
+      the service on in system settings.
     -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:allowBackup="false"
         android:label="@string/app_name"
@@ -20,12 +20,26 @@
         android:theme="@style/Theme.Hemingway">
 
         <!--
+          The launcher entry. Beyond explaining the two grants, having any
+          launcher activity matters: a freshly installed app stays in Android's
+          "stopped" state until the user opens it once, and components of a
+          stopped app are skipped when the system resolves intents. Without this
+          there was no way to launch the app at all, which is the likeliest
+          reason Hemingway never appeared in the text-selection toolbar.
+        -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
           PROCESS_TEXT puts this app in the floating toolbar that appears when
           you select text in ANY app. android:label is what shows there, so it
           is kept short.
-
-          Not exported as a launcher activity: the app has no home screen of
-          its own to speak of, it exists to be invoked from a text selection.
         -->
         <activity
             android:name=".ProcessTextActivity"
@@ -39,6 +53,23 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
+
+        <!--
+          Live as-you-type feedback. BIND_ACCESSIBILITY_SERVICE is enforced by
+          the system so only Android itself can bind this.
+        -->
+        <service
+            android:name=".HemingwayAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
 
     </application>
 
