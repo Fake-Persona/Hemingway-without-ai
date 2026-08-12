@@ -2,7 +2,7 @@
 // keeps the caret in place across re-renders, normalizes pasted content to
 // plain text, and drives the stats panel + dark mode toggle.
 
-import { analyzeText, gradeLevelLabel } from "./analyze.js";
+import { analyzeText, gradeLevelLabel, flattenHighlights } from "./analyze.js";
 import { renderDocument } from "./render.js";
 
 const DEBOUNCE_MS = 250;
@@ -203,6 +203,47 @@ function loadInitialText(text) {
 }
 
 loadInitialText(DEFAULT_TEXT);
+
+// --- Embedding bridge ---
+//
+// A stable, minimal surface for a host that embeds this page in a web view
+// (the Android app passes in the text you selected in another app, and reads
+// back whatever you edited). Keeping it to two functions means the host never
+// reaches into the DOM or internals, so this file stays free to change.
+window.hemingway = {
+  setText(text) {
+    loadInitialText(typeof text === "string" ? text : "");
+  },
+  getText() {
+    return readEditorText(editor);
+  },
+  // Stats only, without touching the DOM. The Android floating panel reports on
+  // text you are typing in a different app, so it needs the numbers without
+  // rendering an editor it will never show. Returns a JSON string because that
+  // is what survives the web view bridge intact.
+  // Everything the Android panel needs in one call: the score, the totals, and
+  // each individual issue with the offending words and where they sit.
+  //
+  // The offsets matter as much as the text. Tapping an issue there selects that
+  // exact range in whatever app you are writing in, so the app scrolls to it and
+  // marks it with its own selection — pointing at the problem without this
+  // having to know anything about where it is on screen.
+  analyze(text) {
+    const source = typeof text === "string" ? text : "";
+    const analysis = analyzeText(source);
+    return JSON.stringify({
+      grade: analysis.overallGrade,
+      label: gradeLevelLabel(analysis.overallGrade),
+      totals: analysis.totals,
+      issues: flattenHighlights(analysis).map(highlight => ({
+        start: highlight.start,
+        end: highlight.end,
+        type: highlight.type,
+        text: source.slice(highlight.start, highlight.end)
+      }))
+    });
+  }
+};
 
 // --- Dark mode ---
 

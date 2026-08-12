@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/panel_background"
+    android:padding="8dp">
+
+    <!--
+      The whole panel when collapsed. Drag it to move; tap it to expand.
+      Deliberately narrow: it sits over someone's writing, so its resting state
+      has to be ignorable.
+    -->
+    <LinearLayout
+        android:id="@+id/header"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/grade"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/panel_text"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:text="@string/widget_placeholder" />
+
+        <TextView
+            android:id="@+id/summary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/chevron"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="11sp"
+            android:text="@string/chevron_collapsed" />
+    </LinearLayout>
+
+    <!-- Everything below is hidden until expanded. -->
+    <LinearLayout
+        android:id="@+id/detail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Every category, so a clean one reads as something done right rather
+             than simply being absent. -->
+        <TextView
+            android:id="@+id/breakdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="11sp" />
+
+        <!-- Roughly four rows, then it scrolls: enough to act on without the
+             panel growing over the text it is describing. -->
+        <ScrollView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:maxHeight="132dp"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:id="@+id/issues"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="10sp"
+            android:text="@string/widget_hint" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hemingway</string>
+    <!-- Shown in the floating text-selection toolbar, so it must stay short. -->
+    <string name="process_text_label">Hemingway</string>
+    <string name="replace_selection">Replace selection</string>
+    <string name="could_not_read_text">Could not read the edited text</string>
+
+    <!-- Setup screen -->
+    <string name="setup_intro">Two things must be switched on for live feedback while you type. Android only allows granting them from system settings, so each button opens the right page.</string>
+    <string name="granted">Granted</string>
+    <string name="not_granted">Not granted yet</string>
+    <string name="status_ready">Live feedback is on — the panel appears while you type.</string>
+    <string name="status_incomplete">Live feedback is off — both grants below are needed.</string>
+
+    <string name="perm_overlay_title">1. Display over other apps</string>
+    <string name="perm_overlay_why">Lets the small feedback panel float above whatever app you are writing in.</string>
+    <string name="perm_overlay_button">Open settings</string>
+
+    <string name="perm_a11y_title">2. Accessibility service</string>
+    <string name="perm_a11y_why">Lets the app read the text field you are typing in, which is the only way Android allows feedback inside other apps. Find "Hemingway" in the list and turn it on. Nothing is stored or sent anywhere — the app has no internet permission at all.</string>
+    <string name="perm_a11y_button">Open accessibility settings</string>
+    <string name="a11y_description">Reads the text field you are currently typing in so Hemingway can show readability feedback. Nothing is stored or transmitted; the app declares no internet permission.</string>
+
+    <string name="other_ways_title">Without any permissions</string>
+    <string name="other_ways_body">Select text in most apps and choose Hemingway from the popup menu, or share it here. Apps that draw their own selection menu — Obsidian, for one — offer neither, so paste into the editor instead.</string>
+    <string name="open_editor_button">Open editor</string>
+
+    <!-- Floating panel -->
+    <string name="widget_placeholder">—</string>
+    <string name="widget_grade">Grade %1$d</string>
+    <string name="widget_hint">Tap an item to jump to it</string>
+
+    <!-- Category names for the breakdown line, always shown with their count,
+         zeros included. -->
+    <string name="count_adverbs">adverbs</string>
+    <string name="count_passive">passive</string>
+    <string name="count_complex">complex</string>
+    <string name="count_hard">hard</string>
+    <string name="breakdown_found">%1$d %2$s</string>
+
+    <!-- What kind of problem a row is, shown after the offending words. -->
+    <string name="kind_adverb">adverb</string>
+    <string name="kind_qualifier">hedge</string>
+    <string name="kind_passive">passive</string>
+    <string name="kind_complex">simplify</string>
+    <string name="kind_hard">hard sentence</string>
+    <string name="kind_very_hard">very hard</string>
+    <string name="kind_other">issue</string>
+    <string name="chevron_collapsed">▾</string>
+    <string name="chevron_expanded">▴</string>
+
+    <!-- English has no "zero" plural rule, so a count of 0 would fall through
+         to "other" and read "0 things to fix". Handled separately in code. -->
+    <string name="widget_no_issues">nothing to fix</string>
+    <plurals name="widget_issue_count">
+        <item quantity="one">%d thing to fix</item>
+        <item quantity="other">%d things to fix</item>
+    </plurals>
+
+</resources>

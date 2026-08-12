@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      SYSTEM_ALERT_WINDOW is the only permission declared, and it is what lets
+      the feedback panel float above other apps. Notably absent: INTERNET. The
+      analysis runs offline inside a WebView loading a bundled asset, so the app
+      is structurally incapable of sending your writing anywhere — and CI fails
+      the build if any permission beyond this one ever appears.
+
+      The accessibility service is not a permission; it is granted by switching
+      the service on in system settings.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@drawable/ic_hemingway"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Hemingway">
+
+        <!--
+          The launcher entry: switch live feedback on, or open the editor.
+
+          Also load-bearing: a freshly installed app stays in Android's
+          "stopped" state until opened once, and a stopped app's components are
+          skipped when the system resolves intents. Without this the
+          PROCESS_TEXT entry below never appeared at all.
+        -->
+        <activity
+            android:name=".HomeActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Paste-anything fallback for apps that offer no way to reach us. -->
+        <activity
+            android:name=".EditorActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!--
+          Two ways in from other apps, because no single one covers them all:
+
+          PROCESS_TEXT puts Hemingway in the floating toolbar Android shows when
+          you select text. It is the better path — only it can write edited text
+          back — but it only appears in apps that use the system selection menu.
+
+          SEND covers apps that draw their own selection menu, so never show a
+          PROCESS_TEXT entry, but do offer Share. Obsidian is the case that
+          prompted this.
+
+          Dialog-themed so it floats over the app you were writing in rather
+          than replacing it.
+        -->
+        <activity
+            android:name=".ProcessTextActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_hemingway"
+            android:label="@string/process_text_label"
+            android:theme="@style/Theme.Hemingway.Dialog"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Live as-you-type feedback, and the only route that works in apps
+          drawing their own selection menu: it reads the focused field directly
+          rather than waiting to be handed text through a menu.
+
+          BIND_ACCESSIBILITY_SERVICE is enforced by the system, so only Android
+          itself can bind this.
+        -->
+        <service
+            android:name=".HemingwayAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+    </application>
+
+</manifest>

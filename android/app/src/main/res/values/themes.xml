@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Theme.DeviceDefault.NoActionBar rather than the DayNight variant, which
+      only exists from API 29 and would crash on the API 23 devices minSdk
+      allows. The WebView fills the screen and does its own light/dark from
+      prefers-color-scheme, so it already follows the system setting.
+    -->
+    <style name="Theme.Hemingway" parent="@android:style/Theme.DeviceDefault.NoActionBar" />
+
+    <!--
+      Used only when arriving from another app's selection toolbar or share
+      sheet. A dialog floats above whatever you were writing in, with that app
+      still visible around the edges, instead of replacing it with a full screen
+      — which felt like being thrown out of the app you were using.
+
+      The screen itself cannot be avoided: ACTION_PROCESS_TEXT starts an
+      Activity by definition, and there is no way to render into another app's
+      window without the accessibility overlay route.
+    -->
+    <style name="Theme.Hemingway.Dialog" parent="@android:style/Theme.DeviceDefault.Dialog.NoActionBar">
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
+</resources>
