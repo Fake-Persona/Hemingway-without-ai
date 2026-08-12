@@ -53,6 +53,16 @@
         android:orientation="vertical"
         android:visibility="gone">
 
+        <!-- Every category, so a clean one reads as something done right rather
+             than simply being absent. -->
+        <TextView
+            android:id="@+id/breakdown"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="11sp" />
+
         <!-- Roughly four rows, then it scrolls: enough to act on without the
              panel growing over the text it is describing. -->
         <ScrollView

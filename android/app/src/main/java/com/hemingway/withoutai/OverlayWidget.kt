@@ -101,7 +101,35 @@ class OverlayWidget(
                 .getQuantityString(R.plurals.widget_issue_count, issueCount, issueCount)
         }
 
+        view.findViewById<TextView>(R.id.breakdown).text = breakdown(totals)
+
         if (isExpanded) renderIssues(view.findViewById(R.id.issues))
+    }
+
+    /**
+     * Every category, every time, with a tick where nothing was found.
+     *
+     * Listing only what went wrong makes a clean category invisible, so there is
+     * no way to tell "no passive voice" from "passive voice was not checked".
+     * A tick says the second thing explicitly.
+     */
+    private fun breakdown(totals: JSONObject): String {
+        val categories = listOf(
+            totals.optInt("adverbs") to R.string.count_adverbs,
+            totals.optInt("passiveVoice") to R.string.count_passive,
+            totals.optInt("complex") to R.string.count_complex,
+            (totals.optInt("hardSentences") + totals.optInt("veryHardSentences"))
+                to R.string.count_hard
+        )
+
+        return categories.joinToString("   ") { (count, nameRes) ->
+            val name = context.getString(nameRes)
+            if (count == 0) {
+                context.getString(R.string.breakdown_clear, name)
+            } else {
+                context.getString(R.string.breakdown_found, count, name)
+            }
+        }
     }
 
     private fun setExpanded(expanded: Boolean) {
@@ -158,11 +186,16 @@ class OverlayWidget(
             layoutParams = LinearLayout.LayoutParams(dp(7), dp(7))
         }
 
-        val text = TextView(context).apply {
-            text = label(issue)
+        // Two views rather than one string: the phrase is bounded and truncates,
+        // while the kind is never allowed to. Ellipsizing a single combined
+        // label would eat "· passive" off the end — exactly the part that says
+        // what is wrong.
+        val phrase = TextView(context).apply {
+            text = trimmedPhrase(issue)
             setTextColor(context.getColor(R.color.panel_text))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             maxLines = 1
+            maxWidth = dp(148)
             ellipsize = TextUtils.TruncateAt.END
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -170,8 +203,20 @@ class OverlayWidget(
             ).apply { marginStart = dp(7) }
         }
 
+        val kind = TextView(context).apply {
+            text = kindName(issue.type)
+            setTextColor(context.getColor(R.color.panel_text_dim))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            maxLines = 1
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(8) }
+        }
+
         row.addView(dot)
-        row.addView(text)
+        row.addView(phrase)
+        row.addView(kind)
         row.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
@@ -179,11 +224,27 @@ class OverlayWidget(
         return row
     }
 
-    /** Sentence findings are whole sentences, so they are trimmed to an opening. */
-    private fun label(issue: Issue): String {
+    /**
+     * The offending words, collapsed onto one line. Sentence findings are whole
+     * sentences, so they are cut to a recognisable opening rather than filling
+     * the panel; the width cap on the view handles the rest.
+     */
+    private fun trimmedPhrase(issue: Issue): String {
         val clean = issue.text.replace(Regex("\\s+"), " ").trim()
         return if (clean.length > MAX_LABEL) clean.take(MAX_LABEL - 1) + "…" else clean
     }
+
+    private fun kindName(type: String): String = context.getString(
+        when (type) {
+            "adverb" -> R.string.kind_adverb
+            "qualifier" -> R.string.kind_qualifier
+            "passive" -> R.string.kind_passive
+            "complex" -> R.string.kind_complex
+            "hardSentence" -> R.string.kind_hard
+            "veryHardSentence" -> R.string.kind_very_hard
+            else -> R.string.kind_other
+        }
+    )
 
     private fun dotColorFor(type: String): Int = when (type) {
         "adverb", "qualifier" -> R.color.dot_adverb
