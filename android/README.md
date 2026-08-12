@@ -16,22 +16,27 @@ build below has not been executed. Treat the first local build as the real verif
 
 ## Building
 
-Requires the Android SDK (Android Studio, or command-line tools) and a JDK 17+.
+Requires the Android SDK (Android Studio, or the command-line tools) and JDK 17+. The
+Gradle wrapper is checked in, so Gradle itself downloads on first run.
 
 ```sh
 # 1. Generate the engine the APK embeds. The Gradle build fails with a clear
 #    message if you skip this.
 npm run build          # from the repository root
 
-# 2. Build the APK
+# 2. Point Gradle at your SDK — skip if ANDROID_HOME is already set, and
+#    Android Studio writes this file for you when you open the folder.
 cd android
+echo "sdk.dir=$HOME/Android/Sdk" > local.properties     # macOS: $HOME/Library/Android/sdk
+
+# 3. Build
 ./gradlew assembleDebug
 ```
 
 Output: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-If you don't have a Gradle wrapper checked in, either open the `android/` folder in
-Android Studio (it will offer to create one) or run `gradle wrapper` first.
+First run downloads Gradle 8.9 and the Android Gradle Plugin, so it needs network and a
+few minutes. Opening `android/` in Android Studio instead does all of the above for you.
 
 ## Installing
 
@@ -50,13 +55,31 @@ aapt dump permissions app/build/outputs/apk/debug/app-debug.apk
 
 ## Using it
 
+The app has **no launcher icon** — it isn't something you open, it's something that
+appears when you select text. That's intentional, but it does mean nothing shows up on
+your home screen after installing.
+
 1. Select text in any app
-2. Tap **Hemingway** in the toolbar that appears (may be behind the ⋮ overflow)
+2. Tap **Hemingway** in the toolbar that appears (often behind the ⋮ overflow)
 3. Read the highlights; edit in place if you want
 4. **Replace selection** writes your edited text back
 
 Replace is hidden when the calling app marks the selection read-only, since there's
 nowhere to write back to.
+
+## If something goes wrong
+
+Since this hasn't been compiled yet, here's where to look first:
+
+| Symptom | Likely cause |
+| --- | --- |
+| `hemingway.html not found` | `npm run build` wasn't run from the repo root |
+| `SDK location not found` | No `local.properties` and no `ANDROID_HOME` |
+| **Hemingway** missing from the toolbar | Check the ⋮ overflow; some apps use a custom selection menu that suppresses `PROCESS_TEXT` entirely |
+| Blank white screen | The asset didn't make it into the APK — check `copyEngine` ran, or unzip the APK and look for `assets/hemingway.html` |
+| Replace button never appears | The calling app marked the selection read-only, which is expected in some fields |
+
+`adb logcat | grep -i hemingway` is the fastest way to see what the activity is doing.
 
 ## How it fits together
 

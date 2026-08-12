@@ -4,7 +4,8 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <WebView
+    <!-- Fully qualified: WebView lives in android.webkit, not android.widget. -->
+    <android.webkit.WebView
         android:id="@+id/editor"
         android:layout_width="match_parent"
         android:layout_height="0dp"

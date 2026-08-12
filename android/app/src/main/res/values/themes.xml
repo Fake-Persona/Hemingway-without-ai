@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      DayNight so the system light/dark setting drives the Android chrome. The
-      page inside the WebView does its own theming from prefers-color-scheme,
-      so the two follow the same system preference without talking to each other.
+      Theme.DeviceDefault.NoActionBar rather than the DayNight variant, which
+      only exists from API 29 and would crash on the API 23 devices this app
+      still supports. The activity chrome is just a thin frame anyway — the
+      WebView fills it and does its own light/dark from prefers-color-scheme,
+      so it already follows the system setting.
     -->
-    <style name="Theme.Hemingway" parent="@android:style/Theme.DeviceDefault.DayNight" />
+    <style name="Theme.Hemingway" parent="@android:style/Theme.DeviceDefault.NoActionBar" />
 </resources>
