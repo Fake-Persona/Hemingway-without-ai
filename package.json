@@ -1,0 +1,12 @@
+{
+  "name": "hemingway-without-ai",
+  "version": "1.0.0",
+  "description": "A rule-based readability editor (no AI) that highlights adverbs, passive voice, complex phrases, and hard-to-read sentences as you write.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "build": "node build.js"
+  },
+  "license": "MIT"
+}
