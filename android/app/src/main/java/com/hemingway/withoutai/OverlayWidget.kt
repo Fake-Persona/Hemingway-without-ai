@@ -107,11 +107,11 @@ class OverlayWidget(
     }
 
     /**
-     * Every category, every time, with a tick where nothing was found.
+     * Every category, every time, including the ones at zero.
      *
-     * Listing only what went wrong makes a clean category invisible, so there is
-     * no way to tell "no passive voice" from "passive voice was not checked".
-     * A tick says the second thing explicitly.
+     * Zeros are shown as numbers rather than being dropped or ticked: a "0"
+     * reads as a checked category that came back clean, and keeps the line in
+     * the same shape between edits, so a count changing is easy to spot.
      */
     private fun breakdown(totals: JSONObject): String {
         val categories = listOf(
@@ -123,12 +123,7 @@ class OverlayWidget(
         )
 
         return categories.joinToString("   ") { (count, nameRes) ->
-            val name = context.getString(nameRes)
-            if (count == 0) {
-                context.getString(R.string.breakdown_clear, name)
-            } else {
-                context.getString(R.string.breakdown_found, count, name)
-            }
+            context.getString(R.string.breakdown_found, count, context.getString(nameRes))
         }
     }
 

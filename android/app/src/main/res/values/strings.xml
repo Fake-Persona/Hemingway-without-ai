@@ -31,13 +31,12 @@
     <string name="widget_grade">Grade %1$d</string>
     <string name="widget_hint">Tap an item to jump to it</string>
 
-    <!-- Category names for the breakdown line. Prefixed with a count when
-         something was found, or a tick when nothing was. -->
+    <!-- Category names for the breakdown line, always shown with their count,
+         zeros included. -->
     <string name="count_adverbs">adverbs</string>
     <string name="count_passive">passive</string>
     <string name="count_complex">complex</string>
     <string name="count_hard">hard</string>
-    <string name="breakdown_clear">✓ %1$s</string>
     <string name="breakdown_found">%1$d %2$s</string>
 
     <!-- What kind of problem a row is, shown after the offending words. -->
