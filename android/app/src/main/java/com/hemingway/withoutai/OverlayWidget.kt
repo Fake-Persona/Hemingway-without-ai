@@ -2,15 +2,16 @@ package com.hemingway.withoutai
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
+import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.LinearLayout
@@ -21,13 +22,18 @@ import org.json.JSONObject
 data class Issue(val start: Int, val end: Int, val type: String, val text: String)
 
 /**
- * The floating panel: score, totals, and a tappable list of what it found.
+ * The floating panel: a small score chip that expands into a tappable list of
+ * what it found.
+ *
+ * It sits on top of someone's writing, so its resting state is deliberately
+ * tiny — a grade and a count — and the list only appears when asked for. An
+ * earlier version showed every issue permanently, which covered most of the
+ * screen as soon as a paragraph had a few problems, hiding the very text it
+ * was describing.
  *
  * Tapping an issue asks the service to select that range in the app underneath,
- * which is how the panel points at a problem without knowing anything about
- * where it is on screen. An earlier version painted colour over the words
- * themselves; that needed per-character pixel boxes, went stale the moment you
- * scrolled, and only worked in some apps.
+ * which is how the panel points at a problem without knowing where it is on
+ * screen.
  */
 class OverlayWidget(
     private val context: Context,
@@ -38,6 +44,10 @@ class OverlayWidget(
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
     private var root: View? = null
+    private var isExpanded = false
+
+    /** Held so the list can be rebuilt when expanded without re-analysing. */
+    private var lastIssues: List<Issue> = emptyList()
 
     @SuppressLint("InflateParams")
     fun show() {
@@ -50,20 +60,18 @@ class OverlayWidget(
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
             // NOT_FOCUSABLE keeps the keyboard with the app underneath, so you
-            // can still type while the panel is up; taps inside the panel are
-            // still delivered to it. NOT_TOUCH_MODAL lets taps outside through.
+            // can still type while the panel is up; taps inside it still land.
+            // NOT_TOUCH_MODAL lets taps outside through.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = 0
-            y = 120
+            gravity = Gravity.TOP or Gravity.END
+            x = dp(8)
+            y = dp(80)
         }
 
-        // Only the header drags, so dragging never swallows a tap on a row.
-        makeDraggable(view.findViewById<View>(R.id.header), view, params)
-
+        bindHeader(view, params)
         windowManager.addView(view, params)
         root = view
     }
@@ -71,26 +79,42 @@ class OverlayWidget(
     fun hide() {
         root?.let { runCatching { windowManager.removeView(it) } }
         root = null
+        isExpanded = false
     }
 
     fun render(result: JSONObject) {
         val view = root ?: return
         val totals = result.optJSONObject("totals") ?: return
+        lastIssues = parseIssues(result)
 
         view.findViewById<TextView>(R.id.grade).text =
             context.getString(R.string.widget_grade, result.optInt("grade"))
-        view.findViewById<TextView>(R.id.label).text = result.optString("label")
-        view.findViewById<TextView>(R.id.counts).text = context.getString(
-            R.string.widget_counts,
-            totals.optInt("adverbs"),
-            totals.optInt("passiveVoice"),
-            totals.optInt("complex"),
-            totals.optInt("hardSentences") + totals.optInt("veryHardSentences")
+
+        val issueCount = totals.optInt("adverbs") + totals.optInt("passiveVoice") +
+            totals.optInt("complex") + totals.optInt("hardSentences") +
+            totals.optInt("veryHardSentences")
+
+        view.findViewById<TextView>(R.id.summary).text = if (issueCount == 0) {
+            context.getString(R.string.widget_no_issues)
+        } else {
+            context.resources
+                .getQuantityString(R.plurals.widget_issue_count, issueCount, issueCount)
+        }
+
+        if (isExpanded) renderIssues(view.findViewById(R.id.issues))
+    }
+
+    private fun setExpanded(expanded: Boolean) {
+        val view = root ?: return
+        isExpanded = expanded
+
+        view.findViewById<View>(R.id.detail).visibility =
+            if (expanded) View.VISIBLE else View.GONE
+        view.findViewById<TextView>(R.id.chevron).setText(
+            if (expanded) R.string.chevron_expanded else R.string.chevron_collapsed
         )
 
-        renderIssues(view.findViewById(R.id.issues), parseIssues(result))
-        view.findViewById<TextView>(R.id.hint).visibility =
-            if (parseIssues(result).isEmpty()) View.GONE else View.VISIBLE
+        if (expanded) renderIssues(view.findViewById(R.id.issues))
     }
 
     private fun parseIssues(result: JSONObject): List<Issue> {
@@ -101,75 +125,91 @@ class OverlayWidget(
         }
     }
 
-    private fun renderIssues(container: LinearLayout, issues: List<Issue>) {
+    private fun renderIssues(container: LinearLayout) {
         container.removeAllViews()
-
-        for (issue in issues.take(MAX_ISSUES)) {
+        for (issue in lastIssues.take(MAX_ISSUES)) {
             container.addView(issueRow(issue))
         }
     }
 
+    /**
+     * A neutral row with a small coloured dot, rather than the website's full
+     * colour wash. A wash is heavy at this size, and the pastels that work over
+     * a white page are unreadable on a dark phone.
+     */
     private fun issueRow(issue: Issue): View {
-        val row = TextView(context).apply {
-            text = label(issue)
-            setTextColor(Color.BLACK)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(dp(8), dp(4), dp(8), dp(4))
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(7), dp(5), dp(7), dp(5))
             background = GradientDrawable().apply {
-                cornerRadius = dp(4).toFloat()
-                setColor(colorFor(issue.type))
+                cornerRadius = dp(6).toFloat()
+                setColor(context.getColor(R.color.row_bg))
             }
             isClickable = true
             setOnClickListener { onIssueSelected(issue) }
         }
 
-        val params = LinearLayout.LayoutParams(
+        val dot = View(context).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(context.getColor(dotColorFor(issue.type)))
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(7), dp(7))
+        }
+
+        val text = TextView(context).apply {
+            text = label(issue)
+            setTextColor(context.getColor(R.color.panel_text))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(7) }
+        }
+
+        row.addView(dot)
+        row.addView(text)
+        row.layoutParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(3) }
-        row.layoutParams = params
         return row
     }
 
-    /**
-     * Sentence-level findings are whole sentences, so they are trimmed to a
-     * recognisable opening rather than filling the panel.
-     */
+    /** Sentence findings are whole sentences, so they are trimmed to an opening. */
     private fun label(issue: Issue): String {
         val clean = issue.text.replace(Regex("\\s+"), " ").trim()
-        val shown = if (clean.length > MAX_LABEL) clean.take(MAX_LABEL - 1) + "…" else clean
-        val kind = context.getString(
-            when (issue.type) {
-                "adverb" -> R.string.kind_adverb
-                "qualifier" -> R.string.kind_qualifier
-                "passive" -> R.string.kind_passive
-                "complex" -> R.string.kind_complex
-                "hardSentence" -> R.string.kind_hard
-                "veryHardSentence" -> R.string.kind_very_hard
-                else -> R.string.kind_other
-            }
-        )
-        return "$shown  ·  $kind"
+        return if (clean.length > MAX_LABEL) clean.take(MAX_LABEL - 1) + "…" else clean
     }
 
-    private fun colorFor(type: String): Int = when (type) {
-        "adverb", "qualifier" -> Color.parseColor("#C4E3F3")
-        "passive" -> Color.parseColor("#C4ED9D")
-        "complex" -> Color.parseColor("#E3B7E8")
-        "hardSentence" -> Color.parseColor("#F7ECB5")
-        "veryHardSentence" -> Color.parseColor("#E4B9B9")
-        else -> Color.LTGRAY
+    private fun dotColorFor(type: String): Int = when (type) {
+        "adverb", "qualifier" -> R.color.dot_adverb
+        "passive" -> R.color.dot_passive
+        "complex" -> R.color.dot_complex
+        "hardSentence" -> R.color.dot_hard
+        "veryHardSentence" -> R.color.dot_very_hard
+        else -> R.color.panel_text_dim
     }
 
-    /** Dragging is bound to the header so it cannot swallow taps on the rows. */
+    /**
+     * The header both drags and toggles, told apart by how far the finger moved:
+     * under the system's touch slop it is a tap, beyond it a drag. Splitting
+     * them across two controls would mean more panel, which is what this change
+     * is trying to avoid.
+     */
     @SuppressLint("ClickableViewAccessibility")
-    private fun makeDraggable(handle: View, window: View, params: WindowManager.LayoutParams) {
+    private fun bindHeader(view: View, params: WindowManager.LayoutParams) {
+        val handle = view.findViewById<View>(R.id.header)
+        val slop = ViewConfiguration.get(context).scaledTouchSlop
+
         var startX = 0
         var startY = 0
         var touchX = 0f
         var touchY = 0f
+        var dragged = false
 
         handle.setOnTouchListener { _, event ->
             when (event.action) {
@@ -178,12 +218,23 @@ class OverlayWidget(
                     startY = params.y
                     touchX = event.rawX
                     touchY = event.rawY
+                    dragged = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    params.x = startX + (event.rawX - touchX).toInt()
-                    params.y = startY + (event.rawY - touchY).toInt()
-                    runCatching { windowManager.updateViewLayout(window, params) }
+                    val dx = event.rawX - touchX
+                    val dy = event.rawY - touchY
+                    if (!dragged && kotlin.math.hypot(dx, dy) > slop) dragged = true
+                    if (dragged) {
+                        // Gravity is TOP|END, so x grows leftwards from the right edge.
+                        params.x = (startX - dx).toInt()
+                        params.y = (startY + dy).toInt()
+                        runCatching { windowManager.updateViewLayout(view, params) }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragged) setExpanded(!isExpanded)
                     true
                 }
                 else -> false
@@ -204,6 +255,6 @@ class OverlayWidget(
 
     private companion object {
         const val MAX_ISSUES = 30
-        const val MAX_LABEL = 34
+        const val MAX_LABEL = 30
     }
 }

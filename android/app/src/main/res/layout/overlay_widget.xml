@@ -3,11 +3,14 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#EE1D2025"
-    android:padding="10dp">
+    android:background="@drawable/panel_background"
+    android:padding="8dp">
 
-    <!-- Drag handle: the header moves the panel, so drags don't fight taps
-         on the issue rows below. -->
+    <!--
+      The whole panel when collapsed. Drag it to move; tap it to expand.
+      Deliberately narrow: it sits over someone's writing, so its resting state
+      has to be ignorable.
+    -->
     <LinearLayout
         android:id="@+id/header"
         android:layout_width="wrap_content"
@@ -19,51 +22,61 @@
             android:id="@+id/grade"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textColor="@color/panel_text"
+            android:textSize="13sp"
             android:textStyle="bold"
             android:text="@string/widget_placeholder" />
 
         <TextView
-            android:id="@+id/label"
+            android:id="@+id/summary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/chevron"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:textColor="#9AA3AF"
-            android:textSize="12sp" />
+            android:textColor="@color/panel_text_dim"
+            android:textSize="11sp"
+            android:text="@string/chevron_collapsed" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/counts"
+    <!-- Everything below is hidden until expanded. -->
+    <LinearLayout
+        android:id="@+id/detail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textColor="#E7E9EC"
-        android:textSize="11sp" />
+        android:orientation="vertical"
+        android:visibility="gone">
 
-    <!-- Capped so a long document cannot grow the panel over the whole screen. -->
-    <ScrollView
-        android:id="@+id/issue_scroll"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:maxHeight="180dp"
-        android:scrollbars="vertical">
-
-        <LinearLayout
-            android:id="@+id/issues"
+        <!-- Roughly four rows, then it scrolls: enough to act on without the
+             panel growing over the text it is describing. -->
+        <ScrollView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical" />
-    </ScrollView>
+            android:layout_marginTop="6dp"
+            android:maxHeight="132dp"
+            android:scrollbars="vertical">
 
-    <TextView
-        android:id="@+id/hint"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textColor="#6B7280"
-        android:textSize="10sp"
-        android:text="@string/widget_hint" />
+            <LinearLayout
+                android:id="@+id/issues"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </ScrollView>
+
+        <TextView
+            android:id="@+id/hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:textColor="@color/panel_text_dim"
+            android:textSize="10sp"
+            android:text="@string/widget_hint" />
+    </LinearLayout>
 
 </LinearLayout>

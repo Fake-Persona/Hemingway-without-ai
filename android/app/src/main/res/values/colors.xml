@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Light palette. The -night variant carries the dark one, and Android picks
+  between them from the system setting, so the panel follows the phone rather
+  than being permanently one or the other.
+
+  The dot colours are the website's own highlight palette. Rows are a neutral
+  background with a small coloured dot rather than a full colour wash: a wash
+  reads as heavy on a small floating panel, and the pastels the site uses over
+  white are unreadable on a dark phone.
+-->
+<resources>
+    <color name="panel_bg">#F4F5F7</color>
+    <color name="panel_scrim">#E2E4E8</color>
+    <color name="panel_text">#1F2328</color>
+    <color name="panel_text_dim">#5B6470</color>
+    <color name="row_bg">#FFFFFF</color>
+
+    <color name="dot_adverb">#4A9BD1</color>
+    <color name="dot_passive">#6BA83C</color>
+    <color name="dot_complex">#A85BB8</color>
+    <color name="dot_hard">#D4A72C</color>
+    <color name="dot_very_hard">#D06060</color>
+</resources>

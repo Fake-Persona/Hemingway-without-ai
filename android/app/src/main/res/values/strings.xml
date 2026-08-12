@@ -26,16 +26,19 @@
     <string name="other_ways_body">Select text in most apps and choose Hemingway from the popup menu, or share it here. Apps that draw their own selection menu — Obsidian, for one — offer neither, so paste into the editor instead.</string>
     <string name="open_editor_button">Open editor</string>
 
-    <!-- Floating widget -->
+    <!-- Floating panel -->
     <string name="widget_placeholder">—</string>
     <string name="widget_grade">Grade %1$d</string>
-    <string name="widget_counts">%1$d adverbs · %2$d passive · %3$d complex · %4$d hard</string>
-    <string name="widget_hint">Tap an item to select it in the app</string>
-    <string name="kind_adverb">adverb</string>
-    <string name="kind_qualifier">hedge</string>
-    <string name="kind_passive">passive</string>
-    <string name="kind_complex">simplify</string>
-    <string name="kind_hard">hard sentence</string>
-    <string name="kind_very_hard">very hard</string>
-    <string name="kind_other">issue</string>
+    <string name="widget_hint">Tap an item to jump to it</string>
+    <string name="chevron_collapsed">▾</string>
+    <string name="chevron_expanded">▴</string>
+
+    <!-- English has no "zero" plural rule, so a count of 0 would fall through
+         to "other" and read "0 things to fix". Handled separately in code. -->
+    <string name="widget_no_issues">nothing to fix</string>
+    <plurals name="widget_issue_count">
+        <item quantity="one">%d thing to fix</item>
+        <item quantity="other">%d things to fix</item>
+    </plurals>
+
 </resources>
