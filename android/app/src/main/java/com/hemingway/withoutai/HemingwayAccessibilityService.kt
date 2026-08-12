@@ -30,10 +30,37 @@ class HemingwayAccessibilityService : AccessibilityService() {
     /** Last diagnostic line, so [report] only logs when the outcome changes. */
     private var lastReport: String? = null
 
+    /**
+     * Android may call this more than once on the same instance — on rebind, or
+     * after a configuration change — so anything left from a previous
+     * connection is torn down first. Without that, a second call abandoned the
+     * old panel on screen and replaced the reference to it, so it could never
+     * be removed.
+     */
     override fun onServiceConnected() {
         super.onServiceConnected()
+        teardown()
         engine = AnalysisEngine(this)
         panel = OverlayWidget(this, ::selectInHostApp).also { it.show() }
+    }
+
+    // onDestroy is not guaranteed to arrive promptly when a service is switched
+    // off, and toggling with an accessibility shortcut unbinds first, so the
+    // panel is taken down here too rather than being left over the screen.
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        teardown()
+        return super.onUnbind(intent)
+    }
+
+    private fun teardown() {
+        panel?.hide()
+        engine?.destroy()
+        panel = null
+        engine = null
+        // Cleared so a fresh connection re-renders immediately rather than
+        // waiting for the text to differ from a previous session's.
+        lastText = null
+        lastReport = null
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -45,6 +72,12 @@ class HemingwayAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED -> Unit
             else -> return
         }
+
+        // Re-attach if the panel has gone missing. The window can be torn down
+        // without this service hearing about it, and a returning false here is
+        // free, so this doubles as a cheap recovery rather than needing the
+        // service to be switched off and on by hand.
+        if (panel?.show() == true) lastText = null
 
         val node = findFocusedTextNode()
         if (node == null) {
@@ -65,10 +98,7 @@ class HemingwayAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
-        panel?.hide()
-        engine?.destroy()
-        panel = null
-        engine = null
+        teardown()
         super.onDestroy()
     }
 

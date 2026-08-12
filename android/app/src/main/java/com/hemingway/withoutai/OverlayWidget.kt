@@ -49,9 +49,30 @@ class OverlayWidget(
     /** Held so the list can be rebuilt when expanded without re-analysing. */
     private var lastIssues: List<Issue> = emptyList()
 
+    /**
+     * Puts the panel on screen, or puts it back if it has gone missing.
+     *
+     * Safe to call repeatedly: it returns false when the panel is already up.
+     *
+     * The "already up" check tests whether the view is actually attached, not
+     * merely whether we hold a reference to it. Toggling the service quickly —
+     * with an accessibility shortcut, say — can tear the window down without
+     * our own teardown running, leaving a non-null reference to a view that is
+     * no longer on screen. Trusting the reference meant refusing to re-add it,
+     * so the panel stayed invisible until the service was fully disabled and
+     * re-enabled by hand.
+     *
+     * @return true if this call attached the panel, false if it was already up.
+     */
     @SuppressLint("InflateParams")
-    fun show() {
-        if (root != null) return
+    fun show(): Boolean {
+        val existing = root
+        if (existing != null) {
+            if (existing.isAttachedToWindow) return false
+            // Stale: the window went away without us being told.
+            runCatching { windowManager.removeView(existing) }
+            root = null
+        }
 
         val view = LayoutInflater.from(context).inflate(R.layout.overlay_widget, null)
 
@@ -72,8 +93,16 @@ class OverlayWidget(
         }
 
         bindHeader(view, params)
-        windowManager.addView(view, params)
+
+        // addView throws if the window token is already gone or the overlay
+        // grant was revoked. Letting that escape would take the whole service
+        // down; failing quietly leaves the next call free to retry.
+        val added = runCatching { windowManager.addView(view, params) }.isSuccess
+        if (!added) return false
+
         root = view
+        isExpanded = false
+        return true
     }
 
     fun hide() {
